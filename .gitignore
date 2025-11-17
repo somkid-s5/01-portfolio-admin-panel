@@ -1,0 +1,42 @@
+# ==================================
+# Node / Dependencies
+# ==================================
+# โฟลเดอร์ที่เก็บแพ็กเกจทั้งหมด (ใหญ่มาก!)
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# ==================================
+# Secrets / Environment
+# ==================================
+# ไฟล์ความลับ ห้ามขึ้น GitHub เด็ดขาด!!!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# ==================================
+# Next.js (Frontend)
+# ==================================
+# โฟลเดอร์ที่ Next.js build ออกมา
+.next/
+out/
+build/
+
+# ==================================
+# NestJS (Backend)
+# ==================================
+# โฟลเดอร์ที่ NestJS build ออกมา
+dist/
+
+# ==================================
+# OS / IDE
+# ==================================
+# ไฟล์ขยะของ macOS
+.DS_Store
+# ไฟล์ของ VS Code (บางส่วน)
+.vscode/
+# ไฟล์ของ TypeScript
+*.tsbuildinfo
