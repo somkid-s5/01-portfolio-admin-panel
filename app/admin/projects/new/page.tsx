@@ -19,7 +19,7 @@ import {
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { TriangleAlertIcon } from "lucide-react"
 import { RichProjectEditor } from "@/components/project-editor"
-import { ProjectBlogPreview } from "@/components/ProjectPreview"
+import { ProjectBlogPreview } from "@/components/project-preview"
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived"
 
