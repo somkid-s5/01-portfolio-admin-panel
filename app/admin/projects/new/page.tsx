@@ -19,9 +19,14 @@ import {
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { TriangleAlertIcon } from "lucide-react"
 import { RichProjectEditor } from "@/components/project-editor"
-import { ProjectBlogPreview } from "@/components/ProjectPreview"
+import { ProjectBlogPreview } from "@/components/project-preview"
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived"
+
+type TempImage = {
+  id: string
+  file: File
+}
 
 function slugify(value: string) {
   return value
@@ -48,6 +53,8 @@ export default function NewProjectPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [tempImages, setTempImages] = useState<TempImage[]>([])   // 👈 เพิ่ม
+
 
 
 
@@ -57,37 +64,87 @@ export default function NewProjectPage() {
     setSlug(slugify(title))
   }
 
+  async function uploadTempImagesAndPatchContent(
+    rawContent: any,
+    images: TempImage[],
+    slugForName: string
+  ): Promise<any> {
+    if (!rawContent || images.length === 0) return rawContent
+
+    const findFile = (id: string) => images.find((img) => img.id === id)?.file
+
+    async function walk(node: any): Promise<any> {
+      if (!node) return node
+      const newNode = { ...node }
+
+      // เจอ image ที่มี temp id
+      if (
+        newNode.type === "image" &&
+        newNode.attrs &&
+        newNode.attrs["data-temp-id"]
+      ) {
+        const tempId = newNode.attrs["data-temp-id"] as string
+        const file = findFile(tempId)
+
+        if (file) {
+          const ext = file.name.split(".").pop() || "png"
+          const fileName = `${slugForName}-${tempId}.${ext}`
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from("project-images")                   // 👈 bucket ที่สร้างไว้
+            .upload(fileName, file, { upsert: true })
+
+          if (uploadError) {
+            throw new Error(uploadError.message)
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from("project-images")
+            .getPublicUrl(uploadData.path)
+
+          newNode.attrs = {
+            ...newNode.attrs,
+            src: publicUrlData.publicUrl,
+          }
+          delete newNode.attrs["data-temp-id"]
+        }
+      }
+
+      if (Array.isArray(newNode.content)) {
+        newNode.content = await Promise.all(newNode.content.map(walk))
+      }
+
+      return newNode
+    }
+
+    // root node
+    return await walk(rawContent)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
     try {
-      let finalCoverUrl: string | null = coverImageUrl || null
+      // 1) เตรียม slug ไว้ใช้ตั้งชื่อไฟล์ ถ้ายังไม่มีใช้จาก title
+      const slugForName = (slug || slugify(title) || "project").toLowerCase()
 
-      // ถ้าเลือกไฟล์ → อัปโหลดไป Supabase ตอนนี้
-      if (coverFile) {
-        const fileExt = coverFile.name.split(".").pop()
-        const fileName = `${slug || slugify(title)}-${Date.now()}.${fileExt}`
-        const filePath = fileName
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("project-covers")
-          .upload(filePath, coverFile, { upsert: true })
-
-        if (uploadError) {
-          setError("Upload cover image failed: " + uploadError.message)
-          setLoading(false)
-          return
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("project-covers")
-          .getPublicUrl(uploadData.path)
-
-        finalCoverUrl = publicUrlData.publicUrl
+      // 2) อัปโหลด temp images + patch content_json
+      let finalContent = contentJson
+      try {
+        finalContent = await uploadTempImagesAndPatchContent(
+          contentJson,
+          tempImages,
+          slugForName
+        )
+      } catch (err: any) {
+        setError("Upload inline images failed: " + err.message)
+        setLoading(false)
+        return
       }
 
+      // 3) payload รวมทุกอย่าง
       const payload: any = {
         title,
         slug: slug || slugify(title),
@@ -97,8 +154,8 @@ export default function NewProjectPage() {
         tech_stack: techStack
           ? techStack.split(",").map((t) => t.trim()).filter(Boolean)
           : null,
-        cover_image_url: finalCoverUrl,
-        content_json: contentJson ?? null,
+        cover_image_url: coverImageUrl || null,
+        content_json: finalContent ?? null,
       }
 
       const { error } = await supabase.from("projects").insert(payload)
@@ -115,6 +172,9 @@ export default function NewProjectPage() {
       setLoading(false)
     }
   }
+
+
+
 
 
   return (
@@ -281,6 +341,9 @@ export default function NewProjectPage() {
                 <RichProjectEditor
                   initialContent={null}
                   onChange={(doc) => setContentJson(doc)}
+                  onAddTempImage={(tempId, file) =>
+                    setTempImages((prev) => [...prev, { id: tempId, file }])
+                  }
                 />
               </div>
 

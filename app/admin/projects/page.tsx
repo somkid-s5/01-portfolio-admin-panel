@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabaseClient"
 import Link from "next/link"
+import { format } from 'date-fns';
 
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived"
@@ -27,6 +28,7 @@ type ProjectItem = {
     description: string | null
     status: ProjectStatus
     tech_stack: string[] | null
+    updated_at: string
 }
 
 const statusLabel: Record<ProjectStatus, string> = {
@@ -53,7 +55,7 @@ export default function ProjectsPage() {
 
             const { data, error } = await supabase
                 .from("projects")
-                .select("id, title, description, status, tech_stack")
+                .select("id, title, description, status, tech_stack, updated_at")
                 .order("created_at", { ascending: false })
 
             if (error) {
@@ -69,6 +71,7 @@ export default function ProjectsPage() {
                     description: row.description,
                     status: row.status as ProjectStatus,
                     tech_stack: row.tech_stack as string[] | null,
+                    updated_at: row.updated_at
                 }))
             )
             setLoading(false)
@@ -197,7 +200,7 @@ export default function ProjectsPage() {
                                 </p>
                                 <div className="flex items-center justify-between text-[11px]">
                                     <span className="text-muted-foreground/80">
-                                        ID: {project.id}
+                                        Updated: {format(new Date(project.updated_at.replace(' ', 'T')), 'dd MMM yyyy')}
                                     </span>
                                     <Link href={`/admin/projects/${project.id}`} passHref>
                                         <Button

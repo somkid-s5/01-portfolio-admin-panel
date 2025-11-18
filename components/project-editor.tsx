@@ -1,7 +1,7 @@
 "use client"
 
 import { useEditor, EditorContent } from "@tiptap/react" // <-- กล่องหลัก (Core) มีแค่นี้
-
+import { useState } from "react"
 import StarterKit from "@tiptap/starter-kit"
 import Link from "@tiptap/extension-link"
 import Image from "@tiptap/extension-image"
@@ -51,12 +51,19 @@ export type ProjectContentJSON = any
 type RichProjectEditorProps = {
     initialContent?: ProjectContentJSON | null
     onChange: (doc: ProjectContentJSON) => void
+    onAddTempImage?: (tempId: string, file: File) => void
 }
+
+
+
 
 export function RichProjectEditor({
     initialContent,
     onChange,
+    onAddTempImage,
 }: RichProjectEditorProps) {
+    const [isPickingImage, setIsPickingImage] = useState(false)
+    const fileInputId = "editor-image-input"
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -426,13 +433,13 @@ export function RichProjectEditor({
                     className="h-8 w-8"
                     onMouseDown={(e) => {
                         e.preventDefault()
-                        const url = window.prompt("Image URL")
-                        if (!url) return
-                        editor.chain().focus().setImage({ src: url }).run()
+                        const input = document.getElementById(fileInputId) as HTMLInputElement | null
+                        input?.click()
                     }}
                 >
                     <ImageIcon className="h-3.5 w-3.5" />
                 </Button>
+
             </div>
 
 
@@ -510,6 +517,35 @@ export function RichProjectEditor({
                     </Button>
                 </div>
             </FloatingMenu> */}
+
+            <input
+                id={fileInputId}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+
+                    const tempId = crypto.randomUUID()
+                    const objectUrl = URL.createObjectURL(file)
+
+                    // แทรกรูปเข้า editor พร้อม tag data-temp-id
+                    editor
+                        .chain()
+                        .focus()
+                        .setImage({
+                            src: objectUrl,
+                            alt: file.name,
+                            ["data-temp-id"]: tempId,
+                        } as any)
+                        .run()
+
+                    onAddTempImage?.(tempId, file)
+                    e.target.value = ""
+                }}
+            />
+
 
             <EditorContent editor={editor} className="bg-card" />
         </div>
