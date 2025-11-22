@@ -318,7 +318,7 @@ export default function ProjectsPage() {
                   {project.title}
                 </CardTitle>
 
-                <p className="text-xs text-muted-foreground line-clamp-3">
+                <p className="text-[10px]  text-muted-foreground line-clamp-3">
                   {project.description || "No description provided yet."}
                 </p>
 
@@ -388,7 +388,7 @@ export default function ProjectsPage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-1">
+                  <p className="text-xs  text-muted-foreground line-clamp-1">
                     {project.description || "No description provided yet."}
                   </p>
                   {project.tech_stack && project.tech_stack.length > 0 && (
