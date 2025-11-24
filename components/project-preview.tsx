@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { JSONContent } from "@tiptap/core"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
@@ -10,15 +11,13 @@ import StarterKit from "@tiptap/starter-kit"
 import Link from "@tiptap/extension-link"
 import TiptapImage from "@tiptap/extension-image"
 
-type ProjectStatus = "draft" | "in_progress" | "done" | "archived"
-
 type ProjectBlogPreviewProps = {
   title: string
   excerpt: string
-  status: ProjectStatus
+  status: string
   techStack: string
   coverImageUrl?: string | null
-  contentJson: any | null
+  contentJson: JSONContent | null
 }
 
 export function ProjectBlogPreview({
@@ -72,7 +71,11 @@ export function ProjectBlogPreview({
       ? "In progress"
       : status === "done"
       ? "Completed"
-      : "Archived"
+      : status === "published"
+      ? "Published"
+      : status === "archived"
+      ? "Archived"
+      : "Draft"
 
   return (
     <Card className="h-fit bg-card border border-border/60">

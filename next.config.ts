@@ -1,18 +1,54 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
+
+const SUPABASE_HOST = "vmhlmcwsylkpxzkjmjix.supabase.co"
 
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'vmhlmcwsylkpxzkjmjix.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/**', // อนุญาตทุก path ใน public bucket
+        protocol: "https",
+        hostname: SUPABASE_HOST,
+        pathname: "/storage/v1/object/public/doc-images/**",
       },
-      // ... (ถ้ามีโดเมนอื่นๆ ก็เพิ่มต่อตรงนี้) ...
+      {
+        protocol: "https",
+        hostname: SUPABASE_HOST,
+        pathname: "/storage/v1/object/public/project-images/**",
+      },
+      {
+        protocol: "https",
+        hostname: SUPABASE_HOST,
+        pathname: "/storage/v1/object/public/project-covers/**",
+      },
+      {
+        protocol: "https",
+        hostname: SUPABASE_HOST,
+        pathname: "/storage/v1/object/public/cert-images/**",
+      },
     ],
   },
-};
+  async headers() {
+    const csp = [
+      "default-src 'self'",
+      `connect-src 'self' https://${SUPABASE_HOST} ws: wss:`,
+      `img-src 'self' data: https://${SUPABASE_HOST}`,
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+      "frame-ancestors 'self'",
+      "font-src 'self' data:",
+    ].join("; ")
 
-export default nextConfig;
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "same-origin" },
+        ],
+      },
+    ]
+  },
+}
+
+export default nextConfig
