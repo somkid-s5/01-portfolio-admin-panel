@@ -51,6 +51,7 @@ import { DocPage, DocSection } from "./types"
 
 export default function DocsAdminPage() {
   const router = useRouter()
+  const db = supabase as any
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,11 +75,11 @@ export default function DocsAdminPage() {
 
       const [{ data: secData, error: secErr }, { data: pageData, error: pageErr }] =
         await Promise.all([
-          supabase
+          db
             .from("doc_sections")
             .select("id, name, slug, description, sort_order")
             .order("sort_order", { ascending: true }),
-          supabase
+          db
             .from("doc_pages")
             .select("id, section_id, title, slug, excerpt, status, sort_order")
             .order("sort_order", { ascending: true }),
@@ -91,7 +92,7 @@ export default function DocsAdminPage() {
       }
 
       setSections(
-        (secData ?? []).map((row) => ({
+        (secData ?? []).map((row: any) => ({
           id: row.id,
           name: row.name,
           slug: row.slug,
@@ -100,7 +101,7 @@ export default function DocsAdminPage() {
         }))
       )
       setPages(
-        (pageData ?? []).map((row) => ({
+        (pageData ?? []).map((row: any) => ({
           id: row.id,
           section_id: row.section_id,
           title: row.title,
@@ -122,11 +123,11 @@ export default function DocsAdminPage() {
 
     const [{ data: secData, error: secErr }, { data: pageData, error: pageErr }] =
       await Promise.all([
-        supabase
+        db
           .from("doc_sections")
           .select("id, name, slug, description, sort_order")
           .order("sort_order", { ascending: true }),
-        supabase
+        db
           .from("doc_pages")
           .select("id, section_id, title, slug, excerpt, status, sort_order")
           .order("sort_order", { ascending: true }),
@@ -139,7 +140,7 @@ export default function DocsAdminPage() {
     }
 
     setSections(
-      (secData ?? []).map((row) => ({
+      (secData ?? []).map((row: any) => ({
         id: row.id,
         name: row.name,
         slug: row.slug,
@@ -148,7 +149,7 @@ export default function DocsAdminPage() {
       }))
     )
     setPages(
-      (pageData ?? []).map((row) => ({
+      (pageData ?? []).map((row: any) => ({
         id: row.id,
         section_id: row.section_id,
         title: row.title,
@@ -169,7 +170,7 @@ export default function DocsAdminPage() {
     const sortOrder =
       (sections[sections.length - 1]?.sort_order ?? 0) + 10
 
-    const { error } = await supabase.from("doc_sections").insert({
+    const { error } = await db.from("doc_sections").insert({
       name: newSectionName.trim(),
       slug,
       sort_order: sortOrder,
@@ -199,7 +200,7 @@ export default function DocsAdminPage() {
     const sortOrder =
       (pagesInSection[pagesInSection.length - 1]?.sort_order ?? 0) + 10
 
-    const { error } = await supabase.from("doc_pages").insert({
+    const { error } = await db.from("doc_pages").insert({
       section_id: targetSectionId,
       title: newItemTitle.trim(),
       slug,
@@ -226,7 +227,7 @@ export default function DocsAdminPage() {
     )
     if (!confirmed) return
 
-    const { error } = await supabase
+    const { error } = await db
       .from("doc_sections")
       .delete()
       .eq("id", sectionId)
@@ -244,7 +245,7 @@ export default function DocsAdminPage() {
     const confirmed = window.confirm("Delete this doc page?")
     if (!confirmed) return
 
-    const { error } = await supabase
+    const { error } = await db
       .from("doc_pages")
       .delete()
       .eq("id", pageId)
@@ -382,7 +383,7 @@ export default function DocsAdminPage() {
                                 section.name
                               ) ?? ""
                             if (!newName.trim()) return
-                            supabase
+                            db
                               .from("doc_sections")
                               .update({
                                 name: newName.trim(),

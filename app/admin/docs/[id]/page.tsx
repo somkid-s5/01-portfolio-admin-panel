@@ -15,6 +15,7 @@ export default function EditDocPage() {
   const params = useParams()
   const router = useRouter()
   const docId = params.id as string
+  const db = supabase as any
 
   const [sections, setSections] = useState<DocSection[]>([])
   const [initialValues, setInitialValues] = useState<DocFormState | null>(null)
@@ -26,15 +27,15 @@ export default function EditDocPage() {
       setLoading(true)
 
       const [secRes, docRes] = await Promise.all([
-        supabase
+        db
           .from("doc_sections")
           .select("id, name, slug")
           .order("sort_order", { ascending: true }),
-        supabase
+        db
           .from("doc_pages")
           .select("id, section_id, title, slug, excerpt, status, content_json")
           .eq("id", docId)
-          .maybeSingle<DocPage>(),
+          .maybeSingle(),
       ])
 
       if (secRes.error) {
@@ -54,7 +55,7 @@ export default function EditDocPage() {
       }
 
       setSections(
-        (secRes.data ?? []).map((row) => ({
+        (secRes.data ?? []).map((row: any) => ({
           id: row.id,
           name: row.name,
           slug: row.slug,
@@ -87,12 +88,11 @@ export default function EditDocPage() {
     content_json: JSONContent | null
   }) => {
     setSaving(true)
-    setError(null)
 
     try {
       const slugForName = (payload.slug || slugify(payload.title)).toLowerCase()
 
-      const { error: updateErr } = await supabase
+      const { error: updateErr } = await db
         .from("doc_pages")
         .update({
           section_id: payload.section_id,

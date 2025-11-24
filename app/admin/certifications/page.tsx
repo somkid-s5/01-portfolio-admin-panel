@@ -141,6 +141,7 @@ function slugify(value: string) {
 
 export default function CertificationsPage() {
   const router = useRouter();
+  const db = supabase as any;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,11 +169,11 @@ export default function CertificationsPage() {
       setError(null);
 
       const [catRes, certRes] = await Promise.all([
-        supabase
+        db
           .from("cert_categories")
           .select("id, name, slug")
           .order("sort_order", { ascending: true }),
-        supabase
+        db
           .from("certs")
           .select(
             "id, cert_type, name, vendor, category_id, level, status, issue_date, expiry_date, credential_id, credential_url, score, highlight, badge_image_url"
@@ -259,7 +260,7 @@ export default function CertificationsPage() {
 
     try {
       // หาค่า sort_order ถัดไปง่าย ๆ = max + 1
-      const { data: existingCats, error: catLoadError } = await supabase
+      const { data: existingCats, error: catLoadError } = await db
         .from("cert_categories")
         .select("sort_order")
         .order("sort_order", { ascending: false })
@@ -273,10 +274,10 @@ export default function CertificationsPage() {
 
       const nextSort =
         existingCats && existingCats.length > 0
-          ? (existingCats[0].sort_order ?? 0) + 1
+          ? ((existingCats[0] as { sort_order: number | null }).sort_order ?? 0) + 1
           : 0;
 
-      const { data: insertData, error: insertError } = await supabase
+      const { data: insertData, error: insertError } = await db
         .from("cert_categories")
         .insert({
           name,

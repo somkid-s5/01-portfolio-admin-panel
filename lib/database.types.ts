@@ -140,6 +140,7 @@ export type Database = {
           credential_url: string | null
           score: number | null
           highlight: boolean
+          notes: string | null
           badge_image_url: string | null
         }
         Insert: {
@@ -156,6 +157,7 @@ export type Database = {
           credential_url?: string | null
           score?: number | null
           highlight?: boolean
+          notes?: string | null
           badge_image_url?: string | null
         }
         Update: {
@@ -172,6 +174,7 @@ export type Database = {
           credential_url?: string | null
           score?: number | null
           highlight?: boolean
+          notes?: string | null
           badge_image_url?: string | null
         }
       }

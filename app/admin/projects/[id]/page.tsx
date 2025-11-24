@@ -49,6 +49,7 @@ function slugify(value: string) {
 export default function EditProjectPage() {
   const router = useRouter();
   const { id } = useParams();
+  const db = supabase as any;
 
   // form fields
   const [title, setTitle] = useState("");
@@ -92,7 +93,7 @@ export default function EditProjectPage() {
   // fetch project
   useEffect(() => {
     const loadProject = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("projects")
         .select("*")
         .eq("id", id)
@@ -167,7 +168,7 @@ export default function EditProjectPage() {
         cover_image_url: finalCoverUrl,
       };
 
-      const { error } = await supabase
+      const { error } = await db
         .from("projects")
         .update(payload)
         .eq("id", id);

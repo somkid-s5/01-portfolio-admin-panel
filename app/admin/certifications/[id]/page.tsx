@@ -226,7 +226,8 @@ export default function EditCertificationPage() {
         badge_image_url: finalBadgeUrl,
       }
 
-      const { error } = await supabase
+      // Type narrowing for Supabase typed client can be strict here; cast to allow update payload.
+      const { error } = await (supabase as any)
         .from("certs")
         .update(payload)
         .eq("id", certId)

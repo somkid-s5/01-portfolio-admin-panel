@@ -56,6 +56,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const db = supabase as any;
 
   // --- LOGIC ---
   const [searchTerm, setSearchTerm] = useState("");
@@ -81,14 +82,14 @@ export default function ProjectsPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       // (ดึงแค่คอลัมน์ category มาก็พอ)
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("projects")
         .select("category");
 
       if (data) {
         // 1. ดึง Category ทั้งหมด: ["react", "devops", "react", null, "nextjs"]
         const allCategories = data
-          .map((project) => project.category)
+          .map((project: any) => project.category)
           .filter(Boolean) as string[]; // filter(Boolean) = กรอง null, undefined ออก
 
         // 2. "สรุป" (De-duplicate) ให้เหลือตัวเดียว: ["react", "devops", "nextjs"]
@@ -113,7 +114,7 @@ export default function ProjectsPage() {
       setLoading(true);
       setError(null);
 
-      let query = supabase
+      let query = db
         .from("projects")
         .select(
           "id, title, description, status, tech_stack, updated_at, cover_image_url, category"
@@ -140,7 +141,7 @@ export default function ProjectsPage() {
       }
 
       setProjects(
-        (data || []).map((row) => ({
+        (data || []).map((row: any) => ({
           id: row.id,
           title: row.title,
           description: row.description,

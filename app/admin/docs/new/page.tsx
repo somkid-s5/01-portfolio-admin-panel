@@ -21,6 +21,7 @@ const initialFormState: DocFormState = {
 
 export default function NewDocPage() {
   const router = useRouter()
+  const db = supabase as any
 
   const [sections, setSections] = useState<DocSection[]>([])
   const [loadingSections, setLoadingSections] = useState(true)
@@ -30,7 +31,7 @@ export default function NewDocPage() {
     const loadSections = async () => {
       setLoadingSections(true)
 
-      const { data, error: queryError } = await supabase
+      const { data, error: queryError } = await db
         .from("doc_sections")
         .select("id, name, slug")
         .order("sort_order", { ascending: true })
@@ -42,7 +43,7 @@ export default function NewDocPage() {
       }
 
       setSections(
-        (data ?? []).map((row) => ({
+        (data ?? []).map((row: any) => ({
           id: row.id,
           name: row.name,
           slug: row.slug,
@@ -69,13 +70,13 @@ export default function NewDocPage() {
       const slugForName = (payload.slug || slugify(payload.title)).toLowerCase()
       let sortOrder = 10
 
-      const { data: maxRow, error: maxErr } = await supabase
+      const { data: maxRow, error: maxErr } = await db
         .from("doc_pages")
         .select("sort_order")
         .eq("section_id", payload.section_id)
         .order("sort_order", { ascending: false })
         .limit(1)
-        .maybeSingle<{ sort_order: number | null }>()
+        .maybeSingle()
 
       if (maxErr && maxErr.code !== "PGRST116") {
         throw maxErr
@@ -85,7 +86,7 @@ export default function NewDocPage() {
         sortOrder = maxRow.sort_order + 10
       }
 
-      const { error: insertErr } = await supabase.from("doc_pages").insert({
+      const { error: insertErr } = await db.from("doc_pages").insert({
         section_id: payload.section_id,
         title: payload.title,
         slug: slugForName,
