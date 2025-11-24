@@ -206,7 +206,7 @@ export default function EditCertificationPage() {
       }
 
       // 2) payload สำหรับ update
-      const payload: any = {
+      const payload = {
         cert_type: certType,
         name: name.trim(),
         vendor: vendor.trim(),
