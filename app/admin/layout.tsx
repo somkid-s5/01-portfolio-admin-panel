@@ -11,6 +11,7 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
@@ -51,11 +52,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getUser();
+      try {
+        const { data, error } = await supabase.auth.getUser();
 
-      if (!data.user) {
+        if (error) {
+          toast.error("Session check failed, please sign in again.");
+          router.replace("/login");
+          return;
+        }
+
+        if (!data.user) {
+          router.replace("/login");
+          return;
+        }
+
+        setChecking(false);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unable to verify session";
+        toast.error(message);
         router.replace("/login");
-      } else {
+      } finally {
         setChecking(false);
       }
     };
@@ -71,7 +88,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="text-sm text-muted-foreground">Checking session…</div>
+        <div className="space-y-2 text-center">
+          <div className="h-6 w-40 mx-auto bg-muted animate-pulse rounded-md" />
+          <p className="text-sm text-muted-foreground">Checking session…</p>
+        </div>
       </div>
     );
   }

@@ -45,41 +45,9 @@ import {
 
 
 
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  FileText,
-  Folder,
-} from "lucide-react"
-
-type DocStatus = "draft" | "published" | "archived"
-
-type DocSectionRow = {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  sort_order: number
-}
-
-type DocPageRow = {
-  id: string
-  section_id: string
-  title: string
-  slug: string
-  excerpt: string | null
-  status: DocStatus
-  sort_order: number
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-}
+import { Plus, Pencil, Trash2, FileText, Folder } from "lucide-react"
+import { slugify } from "@/lib/utils"
+import { DocPage, DocSection } from "./types"
 
 export default function DocsAdminPage() {
   const router = useRouter()
@@ -87,8 +55,8 @@ export default function DocsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [sections, setSections] = useState<DocSectionRow[]>([])
-  const [pages, setPages] = useState<DocPageRow[]>([])
+  const [sections, setSections] = useState<DocSection[]>([])
+  const [pages, setPages] = useState<DocPage[]>([])
 
   // modal state
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
@@ -122,8 +90,26 @@ export default function DocsAdminPage() {
         return
       }
 
-      setSections(secData as DocSectionRow[])
-      setPages(pageData as DocPageRow[])
+      setSections(
+        (secData ?? []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          description: "description" in row ? row.description : null,
+          sort_order: "sort_order" in row ? row.sort_order : null,
+        }))
+      )
+      setPages(
+        (pageData ?? []).map((row) => ({
+          id: row.id,
+          section_id: row.section_id,
+          title: row.title,
+          slug: row.slug,
+          excerpt: row.excerpt,
+          status: row.status,
+          sort_order: row.sort_order,
+        }))
+      )
       setLoading(false)
     }
 
@@ -152,8 +138,26 @@ export default function DocsAdminPage() {
       return
     }
 
-    setSections(secData as DocSectionRow[])
-    setPages(pageData as DocPageRow[])
+    setSections(
+      (secData ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: "description" in row ? row.description : null,
+        sort_order: "sort_order" in row ? row.sort_order : null,
+      }))
+    )
+    setPages(
+      (pageData ?? []).map((row) => ({
+        id: row.id,
+        section_id: row.section_id,
+        title: row.title,
+        slug: row.slug,
+        excerpt: row.excerpt,
+        status: row.status,
+        sort_order: row.sort_order,
+      }))
+    )
     setLoading(false)
   }
 
