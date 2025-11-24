@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
+import { Database } from "@/lib/database.types"
 
 import {
   Card,
@@ -52,6 +53,8 @@ type CertRow = {
   notes: string | null
   badge_image_url: string | null
 }
+
+type CertUpdate = Database["public"]["Tables"]["certs"]["Update"]
 
 function slugify(value: string) {
   return value
@@ -206,7 +209,7 @@ export default function EditCertificationPage() {
       }
 
       // 2) payload สำหรับ update
-      const payload = {
+      const payload: CertUpdate = {
         cert_type: certType,
         name: name.trim(),
         vendor: vendor.trim(),
