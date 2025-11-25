@@ -338,7 +338,7 @@ export default function ProjectsPage() {
       ) : // CARD VIEW
         viewMode === "card" ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <Card
                 key={project.id}
                 className="bg-card/90 border border-border/60 flex flex-col overflow-hidden gap-1 py-0"
