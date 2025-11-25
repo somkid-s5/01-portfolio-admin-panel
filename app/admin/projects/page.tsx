@@ -189,9 +189,13 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-2">
             {/* (SortBy: เหมือนเดิม) */}
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="h-9 w-auto text-xs">
-                <SelectValue />
+              <SelectTrigger
+                className="h-9 w-auto text-xs"
+                aria-label="Sort options"
+              >
+                <SelectValue placeholder="Sort by..." />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectItem value="newest">Sort: by newest</SelectItem>
                 <SelectItem value="popular">Sort: by popular</SelectItem>
@@ -200,16 +204,19 @@ export default function ProjectsPage() {
 
             {/* 🧠 (3) อัปเดต Dropdown Category ให้เป็น Dynamic */}
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="h-9 w-auto text-xs">
+              {/* เพิ่ม aria-label เพื่อบอกว่าปุ่มนี้ใช้กรองหมวดหมู่ 👇 */}
+              <SelectTrigger
+                className="h-9 w-auto text-xs"
+                aria-label="Filter by category"
+              >
                 <SelectValue placeholder="Category: All" />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectItem value="all">Category: All</SelectItem>
 
-                {/* สร้าง Item จาก State ที่เรา "สรุป" มา */}
                 {availableCategories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
-                    {/* (แถม) ทำตัวอักษรตัวแรกให้เป็นตัวใหญ่ */}
                     Category: {cat.charAt(0).toUpperCase() + cat.slice(1)}
                   </SelectItem>
                 ))}
