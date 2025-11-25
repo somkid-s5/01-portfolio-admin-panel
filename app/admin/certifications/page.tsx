@@ -43,6 +43,8 @@ import {
 import { Label } from "@/components/ui/label";
 
 import { Plus, Trophy, Calendar, Filter, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 
 type CertType = "exam" | "training" | "other";
 type CertStatus = "planned" | "in_progress" | "passed" | "expired";
@@ -185,8 +187,8 @@ export default function CertificationsPage() {
       if (catRes.error || certRes.error) {
         setError(
           catRes.error?.message ||
-            certRes.error?.message ||
-            "Failed to load certifications."
+          certRes.error?.message ||
+          "Failed to load certifications."
         );
         setLoading(false);
         return;
@@ -570,9 +572,58 @@ export default function CertificationsPage() {
 
           {/* Table */}
           {loading ? (
-            <p className="text-sm text-muted-foreground">
-              Loading certifications…
-            </p>
+            <div className="rounded-md border border-border/60 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[52px]"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Issue / Expiry</TableHead>
+                    <TableHead className="text-right w-20">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-9 w-9 rounded-md" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-[180px]" />
+                          <Skeleton className="h-3 w-[100px]" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[100px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[80px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-[60px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-[70px]" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Skeleton className="h-3 w-[80px]" />
+                          <Skeleton className="h-3 w-[80px]" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-7 w-12 ml-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : filteredCerts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No certifications match your filters yet.
@@ -607,9 +658,11 @@ export default function CertificationsPage() {
                         <TableCell>
                           <div className="w-9 h-9 rounded-md border border-border/60 bg-muted/40 overflow-hidden flex items-center justify-center">
                             {cert.badge_image_url ? (
-                              <img
+                              <Image
                                 src={cert.badge_image_url}
                                 alt={cert.name}
+                                width={36}
+                                height={36}
                                 className="w-full h-full object-cover"
                               />
                             ) : (

@@ -20,6 +20,7 @@ import {
   SquarePen,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import { Input } from "@/components/ui/input";
@@ -258,11 +259,66 @@ export default function ProjectsPage() {
 
       {/* Loading / Error / Empty / List */}
       {loading ? (
-        <Card className="border-border/60 bg-card/80">
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Loading projects…
-          </CardContent>
-        </Card>
+        viewMode === "card" ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card
+                key={i}
+                className="bg-card/90 border border-border/60 flex flex-col overflow-hidden gap-1 py-0"
+              >
+                <Skeleton className="w-full aspect-video" />
+                <div className="flex flex-col gap-2 flex-1 min-h-[130px] p-2 pb-0">
+                  <div className="flex gap-2">
+                    <Skeleton className="h-4 w-16 rounded-full" />
+                    <Skeleton className="h-4 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-5 w-3/4" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </div>
+                  <div className="flex gap-1 mt-auto pb-1">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-12" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between border-t border-border/60 p-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-7 w-16" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card
+                key={i}
+                className="bg-card/90 border border-border/60 p-0 gap-0"
+              >
+                <CardContent className="pt-3 px-4 flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-1 w-full">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-48" />
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                    </div>
+                    <Skeleton className="h-3 w-2/3" />
+                    <div className="flex gap-1 mt-1">
+                      <Skeleton className="h-4 w-12" />
+                      <Skeleton className="h-4 w-12" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-7 w-16" />
+                </CardContent>
+                <div className="flex justify-end px-4 pb-1">
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        )
       ) : error ? (
         <Card className="border-destructive/40 bg-destructive/10">
           <CardContent className="py-4 text-sm text-destructive">
@@ -280,120 +336,37 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       ) : // CARD VIEW
-      viewMode === "card" ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="bg-card/90 border border-border/60 flex flex-col overflow-hidden gap-1 py-0"
-            >
-              {/* ส่วนรูปภาพ */}
-              <div className="relative w-full aspect-video">
-                {project.cover_image_url ? (
-                  <Image
-                    src={project.cover_image_url}
-                    alt={project.title}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-muted flex items-center justify-center">
-                    <FolderGit2 className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
+        viewMode === "card" ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="bg-card/90 border border-border/60 flex flex-col overflow-hidden gap-1 py-0"
+              >
+                {/* ส่วนรูปภาพ */}
 
-              {/* ส่วนเนื้อหา */}
-              <div className="flex flex-col gap-2 flex-1 min-h-[130px] p-2  pb-0  ">
-                <div className="flex gap-2">
-                  <StatusBadge status={project.status} />
-                  {project.category && (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      {project.category.charAt(0).toUpperCase() +
-                        project.category.slice(1)}
-                    </Badge>
-                  )}
-                </div>
-
-                <CardTitle className="text-sm font-semibold leading-snug line-clamp-2">
-                  {project.title}
-                </CardTitle>
-
-                <p className="text-[10px]  text-muted-foreground line-clamp-3">
-                  {project.description || "No description provided yet."}
-                </p>
-
-                {project.tech_stack && project.tech_stack.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-auto pb-1   ">
-                    {project.tech_stack.map((tech) => (
-                      <Badge
-                        key={tech}
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0"
-                      >
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* ส่วน Footer */}
-              <div className="flex items-center justify-between  border-t border-border/60 p-2">
-                <div className="flex items-center  gap-2 ">
-                  <span className="text-[11px] text-muted-foreground/80">
-                    Updated:{" "}
-                    {format(
-                      new Date(project.updated_at.replace(" ", "T")),
-                      "dd MMM yyyy"
-                    )}
-                  </span>
-                </div>
-
-                <Link href={`/admin/projects/${project.id}`} passHref>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-[11px]"
-                    type="button"
-                  >
-                    <SquarePen className="  text-muted-foreground" />
-                    Edit
-                  </Button>
-                </Link>
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        /* LIST VIEW */
-        <div className="space-y-2">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="bg-card/90 border border-border/60 p-0 gap-0"
-            >
-              <CardContent className="pt-3 px-4 flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{project.title}</span>
-
+                {/* ส่วนเนื้อหา */}
+                <div className="flex flex-col gap-2 flex-1 min-h-[130px] p-2  pb-0  ">
+                  <div className="flex gap-2">
                     <StatusBadge status={project.status} />
                     {project.category && (
-                      <Badge
-                        variant="outline"
-                        className="text-muted-foreground"
-                      >
+                      <Badge variant="outline" className="text-muted-foreground">
                         {project.category.charAt(0).toUpperCase() +
                           project.category.slice(1)}
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs  text-muted-foreground line-clamp-1">
+
+                  <CardTitle className="text-sm font-semibold leading-snug line-clamp-2">
+                    {project.title}
+                  </CardTitle>
+
+                  <p className="text-[10px]  text-muted-foreground line-clamp-3">
                     {project.description || "No description provided yet."}
                   </p>
+
                   {project.tech_stack && project.tech_stack.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-1 mt-auto pb-1   ">
                       {project.tech_stack.map((tech) => (
                         <Badge
                           key={tech}
@@ -407,31 +380,100 @@ export default function ProjectsPage() {
                   )}
                 </div>
 
-                <Link href={`/admin/projects/${project.id}`} passHref>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-[11px]"
-                    type="button"
-                  >
-                    <SquarePen className="  text-muted-foreground" />
-                    Edit
-                  </Button>
-                </Link>
-              </CardContent>
-              <div className="flex justify-end px-4 pb-1">
-                <span className="text-[11px] text-muted-foreground/80">
-                  Updated:{" "}
-                  {format(
-                    new Date(project.updated_at.replace(" ", "T")),
-                    "dd MMM yyyy"
-                  )}
-                </span>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+                {/* ส่วน Footer */}
+                <div className="flex items-center justify-between  border-t border-border/60 p-2">
+                  <div className="flex items-center  gap-2 ">
+                    <span className="text-[11px] text-muted-foreground/80">
+                      Updated:{" "}
+                      {format(
+                        new Date(project.updated_at.replace(" ", "T")),
+                        "dd MMM yyyy"
+                      )}
+                    </span>
+                  </div>
+
+                  <Link href={`/admin/projects/${project.id}`} passHref>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      type="button"
+                    >
+                      <SquarePen className="  text-muted-foreground" />
+                      Edit
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          /* LIST VIEW */
+          <div className="space-y-2">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="bg-card/90 border border-border/60 p-0 gap-0"
+              >
+                <CardContent className="pt-3 px-4 flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{project.title}</span>
+
+                      <StatusBadge status={project.status} />
+                      {project.category && (
+                        <Badge
+                          variant="outline"
+                          className="text-muted-foreground"
+                        >
+                          {project.category.charAt(0).toUpperCase() +
+                            project.category.slice(1)}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs  text-muted-foreground line-clamp-1">
+                      {project.description || "No description provided yet."}
+                    </p>
+                    {project.tech_stack && project.tech_stack.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {project.tech_stack.map((tech) => (
+                          <Badge
+                            key={tech}
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            {tech}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Link href={`/admin/projects/${project.id}`} passHref>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      type="button"
+                    >
+                      <SquarePen className="  text-muted-foreground" />
+                      Edit
+                    </Button>
+                  </Link>
+                </CardContent>
+                <div className="flex justify-end px-4 pb-1">
+                  <span className="text-[11px] text-muted-foreground/80">
+                    Updated:{" "}
+                    {format(
+                      new Date(project.updated_at.replace(" ", "T")),
+                      "dd MMM yyyy"
+                    )}
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
     </div>
   );
 }
