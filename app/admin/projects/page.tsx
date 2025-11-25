@@ -390,7 +390,7 @@ export default function ProjectsPage() {
                 {/* ส่วน Footer */}
                 <div className="flex items-center justify-between  border-t border-border/60 p-2">
                   <div className="flex items-center  gap-2 ">
-                    <span className="text-[11px] text-muted-foreground/80">
+                    <span className="text-[11px] text-muted-foreground">
                       Updated:{" "}
                       {format(
                         new Date(project.updated_at.replace(" ", "T")),
@@ -469,7 +469,7 @@ export default function ProjectsPage() {
                   </Link>
                 </CardContent>
                 <div className="flex justify-end px-4 pb-1">
-                  <span className="text-[11px] text-muted-foreground/80">
+                  <span className="text-[11px] text-muted-foreground">
                     Updated:{" "}
                     {format(
                       new Date(project.updated_at.replace(" ", "T")),

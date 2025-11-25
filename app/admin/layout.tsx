@@ -136,7 +136,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   href={item.href}
                   className={cn(
                     "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                    "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                    "text-sidebar-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
                     active &&
                     "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary"
                   )}
