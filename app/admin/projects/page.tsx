@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
   Filter,
   Search,
   SquarePen,
+  Trash2,
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +33,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived";
 
@@ -68,6 +80,10 @@ export default function ProjectsPage() {
   // 🧠 (1) สร้าง State ใหม่ เพื่อ "เก็บ" Category ที่มีทั้งหมด
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+
   const router = useRouter();
 
   // --- Effect สำหรับ Debounce (รอ 300ms ค่อยค้นหา) ---
@@ -83,9 +99,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       // (ดึงแค่คอลัมน์ category มาก็พอ)
-      const { data, error } = await db
-        .from("projects")
-        .select("category");
+      const { data, error } = await db.from("projects").select("category");
 
       if (data) {
         // 1. ดึง Category ทั้งหมด: ["react", "devops", "react", null, "nextjs"]
@@ -159,11 +173,81 @@ export default function ProjectsPage() {
     fetchProjects();
   }, [debouncedSearchTerm, sortBy, category]);
 
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setProjectToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+
+    const id = projectToDelete;
+    setDeleteDialogOpen(false); // Close dialog immediately
+
+    // Find the project to get the image URL
+    const project = projects.find((p) => p.id === id);
+
+    const deleteOperation = async () => {
+      try {
+        // 1. Delete image from Storage if it exists
+        if (project?.cover_image_url) {
+          try {
+            // Extract path from URL: .../project-images/covers/filename.ext
+            // We need "covers/filename.ext"
+            const url = project.cover_image_url;
+            const bucketName = "project-images";
+
+            // Check if URL contains the bucket name
+            if (url.includes(bucketName)) {
+              const path = url.split(`${bucketName}/`)[1];
+              if (path) {
+                console.log("🔴 Deleting image from storage:", path);
+                const { error: storageError } = await db.storage
+                  .from(bucketName)
+                  .remove([path]);
+
+                if (storageError) {
+                  console.error("🔴 Storage Delete Error:", storageError);
+                  // We continue even if storage delete fails, to ensure DB record is removed
+                }
+              }
+            }
+          } catch (storageErr) {
+            console.error("🔴 Error processing image deletion:", storageErr);
+          }
+        }
+
+        // 2. Delete record from Database
+        const { error } = await db.from("projects").delete().eq("id", id);
+        if (error) {
+          console.error("🔴 Supabase Error:", error);
+          throw error;
+        }
+        return true;
+      } catch (err) {
+        console.error("🔴 Unexpected Error:", err);
+        throw err;
+      }
+    };
+
+    toast.promise(deleteOperation(), {
+      loading: "Deleting project...",
+      success: () => {
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+        return "Project deleted successfully";
+      },
+      error: (err: any) => {
+        return `Failed to delete project: ${err.message}`;
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {/* HEADER และ FILTER BAR */}
       <div className="flex flex-col gap-4">
-        {/* แถวบน */}
+        {/* Header */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
@@ -171,10 +255,10 @@ export default function ProjectsPage() {
               Manage and track your DevOps, system, and documentation projects.
             </p>
           </div>
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <Button
               type="button"
-              className="inline-flex items-center gap-2  text-white hover:bg-transparent  hover:bg-opacity-75  outline-2 outline-green-500"
+              className="inline-flex items-center gap-2 text-white hover:bg-transparent hover:bg-opacity-75 outline-2 outline-green-500"
               onClick={() => router.push("/admin/projects/new")}
             >
               <PlusCircle className="h-4 w-4" />
@@ -183,11 +267,10 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        {/* แถวล่าง: Filter Bar */}
+        {/* Filter Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-          {/* ฝั่งซ้าย: Dropdowns */}
+          {/* Left: Dropdowns */}
           <div className="flex items-center gap-2">
-            {/* (SortBy: เหมือนเดิม) */}
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger
                 className="h-9 w-auto text-xs"
@@ -195,26 +278,21 @@ export default function ProjectsPage() {
               >
                 <SelectValue placeholder="Sort by..." />
               </SelectTrigger>
-
               <SelectContent>
                 <SelectItem value="newest">Sort: by newest</SelectItem>
                 <SelectItem value="popular">Sort: by popular</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* 🧠 (3) อัปเดต Dropdown Category ให้เป็น Dynamic */}
             <Select value={category} onValueChange={setCategory}>
-              {/* เพิ่ม aria-label เพื่อบอกว่าปุ่มนี้ใช้กรองหมวดหมู่ 👇 */}
               <SelectTrigger
                 className="h-9 w-auto text-xs"
                 aria-label="Filter by category"
               >
                 <SelectValue placeholder="Category: All" />
               </SelectTrigger>
-
               <SelectContent>
                 <SelectItem value="all">Category: All</SelectItem>
-
                 {availableCategories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     Category: {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -224,7 +302,7 @@ export default function ProjectsPage() {
             </Select>
           </div>
 
-          {/* ฝั่งขวา: Search, Toggle */}
+          {/* Right: Search, Toggle */}
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -246,14 +324,14 @@ export default function ProjectsPage() {
               <ToggleGroupItem
                 value="card"
                 aria-label="Card view"
-                className={cn("h-8 w-8 ...")}
+                className="h-8 w-8"
               >
                 <LayoutGrid className="h-4 w-4" />
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="list"
                 aria-label="List view"
-                className={cn("h-8 w-8 ...")}
+                className="h-8 w-8"
               >
                 <List className="h-4 w-4" />
               </ToggleGroupItem>
@@ -342,38 +420,111 @@ export default function ProjectsPage() {
             </p>
           </CardContent>
         </Card>
-      ) : // CARD VIEW
-        viewMode === "card" ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {projects.map((project, index) => (
-              <Card
-                key={project.id}
-                className="bg-card/90 border border-border/60 flex flex-col overflow-hidden gap-1 py-0"
-              >
-                {/* ส่วนรูปภาพ */}
+      ) : viewMode === "card" ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {projects.map((project) => (
+            <Card
+              key={project.id}
+              className="bg-card/90 border border-border/60 flex flex-col overflow-hidden gap-1 py-0"
+            >
+              <div className="flex flex-col gap-2 flex-1 min-h-[130px] p-2 pb-0">
+                <div className="flex gap-2">
+                  <StatusBadge status={project.status} />
+                  {project.category && (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {project.category.charAt(0).toUpperCase() +
+                        project.category.slice(1)}
+                    </Badge>
+                  )}
+                </div>
 
-                {/* ส่วนเนื้อหา */}
-                <div className="flex flex-col gap-2 flex-1 min-h-[130px] p-2  pb-0  ">
-                  <div className="flex gap-2">
+                <CardTitle className="text-sm font-semibold leading-snug line-clamp-2">
+                  {project.title}
+                </CardTitle>
+
+                <p className="text-[10px] text-muted-foreground line-clamp-3">
+                  {project.description || "No description provided yet."}
+                </p>
+
+                {project.tech_stack && project.tech_stack.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-auto pb-1">
+                    {project.tech_stack.map((tech) => (
+                      <Badge
+                        key={tech}
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {tech}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border/60 p-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    Updated:{" "}
+                    {format(
+                      new Date(project.updated_at.replace(" ", "T")),
+                      "dd MMM yyyy"
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Link href={`/admin/projects/${project.id}`} passHref>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      type="button"
+                    >
+                      <SquarePen className="text-muted-foreground" />
+                      Edit
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                    type="button"
+                    onClick={(e) => handleDeleteClick(e, project.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {projects.map((project) => (
+            <Card
+              key={project.id}
+              className="bg-card/90 border border-border/60 p-0 gap-0"
+            >
+              <CardContent className="pt-3 px-4 flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{project.title}</span>
                     <StatusBadge status={project.status} />
                     {project.category && (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground"
+                      >
                         {project.category.charAt(0).toUpperCase() +
                           project.category.slice(1)}
                       </Badge>
                     )}
                   </div>
-
-                  <CardTitle className="text-sm font-semibold leading-snug line-clamp-2">
-                    {project.title}
-                  </CardTitle>
-
-                  <p className="text-[10px]  text-muted-foreground line-clamp-3">
+                  <p className="text-xs text-muted-foreground line-clamp-1">
                     {project.description || "No description provided yet."}
                   </p>
-
                   {project.tech_stack && project.tech_stack.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-auto pb-1   ">
+                    <div className="flex flex-wrap gap-1 mt-1">
                       {project.tech_stack.map((tech) => (
                         <Badge
                           key={tech}
@@ -387,18 +538,7 @@ export default function ProjectsPage() {
                   )}
                 </div>
 
-                {/* ส่วน Footer */}
-                <div className="flex items-center justify-between  border-t border-border/60 p-2">
-                  <div className="flex items-center  gap-2 ">
-                    <span className="text-[11px] text-muted-foreground">
-                      Updated:{" "}
-                      {format(
-                        new Date(project.updated_at.replace(" ", "T")),
-                        "dd MMM yyyy"
-                      )}
-                    </span>
-                  </div>
-
+                <div className="flex items-center gap-1">
                   <Link href={`/admin/projects/${project.id}`} passHref>
                     <Button
                       variant="outline"
@@ -406,81 +546,55 @@ export default function ProjectsPage() {
                       className="h-7 px-2 text-[11px]"
                       type="button"
                     >
-                      <SquarePen className="  text-muted-foreground" />
+                      <SquarePen className="text-muted-foreground" />
                       Edit
                     </Button>
                   </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                    type="button"
+                    onClick={(e) => handleDeleteClick(e, project.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          /* LIST VIEW */
-          <div className="space-y-2">
-            {projects.map((project) => (
-              <Card
-                key={project.id}
-                className="bg-card/90 border border-border/60 p-0 gap-0"
-              >
-                <CardContent className="pt-3 px-4 flex items-center justify-between gap-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{project.title}</span>
+              </CardContent>
+              <div className="flex justify-end px-4 pb-1">
+                <span className="text-[11px] text-muted-foreground">
+                  Updated:{" "}
+                  {format(
+                    new Date(project.updated_at.replace(" ", "T")),
+                    "dd MMM yyyy"
+                  )}
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
-                      <StatusBadge status={project.status} />
-                      {project.category && (
-                        <Badge
-                          variant="outline"
-                          className="text-muted-foreground"
-                        >
-                          {project.category.charAt(0).toUpperCase() +
-                            project.category.slice(1)}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs  text-muted-foreground line-clamp-1">
-                      {project.description || "No description provided yet."}
-                    </p>
-                    {project.tech_stack && project.tech_stack.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {project.tech_stack.map((tech) => (
-                          <Badge
-                            key={tech}
-                            variant="outline"
-                            className="text-[10px] px-1.5 py-0"
-                          >
-                            {tech}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <Link href={`/admin/projects/${project.id}`} passHref>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-[11px]"
-                      type="button"
-                    >
-                      <SquarePen className="  text-muted-foreground" />
-                      Edit
-                    </Button>
-                  </Link>
-                </CardContent>
-                <div className="flex justify-end px-4 pb-1">
-                  <span className="text-[11px] text-muted-foreground">
-                    Updated:{" "}
-                    {format(
-                      new Date(project.updated_at.replace(" ", "T")),
-                      "dd MMM yyyy"
-                    )}
-                  </span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              project and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

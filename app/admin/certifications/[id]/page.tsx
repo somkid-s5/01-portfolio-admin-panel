@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter, useParams } from "next/navigation"
-import { supabase } from "@/lib/supabaseClient"
-import { Database } from "@/lib/database.types"
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { Database } from "@/lib/database.types";
 
 import {
   Card,
@@ -11,209 +11,205 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/ui/select"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import { Switch } from "@/components/ui/switch"
-import { TriangleAlertIcon } from "lucide-react"
+} from "@/components/ui/select";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { TriangleAlertIcon } from "lucide-react";
 
-type CertType = "exam" | "training" | "other"
-type CertStatus = "planned" | "in_progress" | "passed" | "expired"
+type CertType = "exam" | "training" | "other";
+type CertStatus = "planned" | "in_progress" | "passed" | "expired";
 
 type CertCategoryRow = {
-  id: string
-  name: string
-  slug: string
-}
+  id: string;
+  name: string;
+  slug: string;
+};
 
 type CertRow = {
-  id: string
-  cert_type: CertType
-  name: string
-  vendor: string
-  category_id: string | null
-  level: string | null
-  status: CertStatus
-  issue_date: string | null
-  expiry_date: string | null
-  credential_id: string | null
-  credential_url: string | null
-  score: number | null
-  highlight: boolean
-  notes: string | null
-  badge_image_url: string | null
-}
-
-type CertUpdate = Database["public"]["Tables"]["certs"]["Update"]
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-}
+  id: string;
+  cert_type: CertType;
+  name: string;
+  vendor: string;
+  category: string | null;
+  level: string | null;
+  status: CertStatus;
+  issue_date: string | null;
+  expiry_date: string | null;
+  credential_id: string | null;
+  credential_url: string | null;
+  score: number | null;
+  highlight: boolean;
+  notes: string | null;
+  badge_image_url: string | null;
+};
 
 export default function EditCertificationPage() {
-  const router = useRouter()
-  const params = useParams()
-  const certId = params.id as string
+  const router = useRouter();
+  const params = useParams();
+  const certId = params.id as string;
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [categories, setCategories] = useState<CertCategoryRow[]>([])
+  const [categories, setCategories] = useState<CertCategoryRow[]>([]);
 
   // form state
-  const [certType, setCertType] = useState<CertType>("exam")
-  const [name, setName] = useState("")
-  const [vendor, setVendor] = useState("")
-  const [categoryId, setCategoryId] = useState<string>("")
-  const [level, setLevel] = useState("")
-  const [status, setStatus] = useState<CertStatus>("planned")
-  const [issueDate, setIssueDate] = useState<string>("")
-  const [expiryDate, setExpiryDate] = useState<string>("")
-  const [credentialId, setCredentialId] = useState("")
-  const [credentialUrl, setCredentialUrl] = useState("")
-  const [score, setScore] = useState<string>("")
-  const [highlight, setHighlight] = useState(false)
-  const [notes, setNotes] = useState("")
+  const [certType, setCertType] = useState<CertType>("exam");
+  const [name, setName] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const [level, setLevel] = useState("");
+  const [status, setStatus] = useState<CertStatus>("planned");
+  const [issueDate, setIssueDate] = useState<string>("");
+  const [expiryDate, setExpiryDate] = useState<string>("");
+  const [credentialId, setCredentialId] = useState("");
+  const [credentialUrl, setCredentialUrl] = useState("");
+  const [score, setScore] = useState<string>("");
+  const [highlight, setHighlight] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   // รูป badge เดิม + ใหม่
-  const [currentBadgeUrl, setCurrentBadgeUrl] = useState<string | null>(null)
-  const [badgeFile, setBadgeFile] = useState<File | null>(null)
-  const [badgePreview, setBadgePreview] = useState<string | null>(null)
-  const [clearBadge, setClearBadge] = useState(false)
+  const [currentBadgeUrl, setCurrentBadgeUrl] = useState<string | null>(null);
+  const [badgeFile, setBadgeFile] = useState<File | null>(null);
+  const [badgePreview, setBadgePreview] = useState<string | null>(null);
+  const [clearBadge, setClearBadge] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const [catRes, certRes] = await Promise.all([
-        supabase
-          .from("cert_categories")
-          .select("id, name, slug")
-          .order("sort_order", { ascending: true }),
-        supabase
+      try {
+        // 1. Fetch the specific certification
+        const { data: certData, error: certError } = await supabase
           .from("certs")
-          .select(
-            "id, cert_type, name, vendor, category_id, level, status, issue_date, expiry_date, credential_id, credential_url, score, highlight, notes, badge_image_url"
-          )
+          .select("*")
           .eq("id", certId)
-          .maybeSingle(),
-      ])
+          .maybeSingle();
 
-      if (catRes.error) {
-        setError(catRes.error.message)
-        setLoading(false)
-        return
+        if (certError) throw new Error(certError.message);
+        if (!certData) throw new Error("Certification not found.");
+
+        // 2. Fetch all certs to derive categories
+        const { data: allCerts, error: allCertsError } = await supabase
+          .from("certs")
+          .select("category");
+
+        if (allCertsError) throw new Error(allCertsError.message);
+
+        // Derive categories
+        const usedIds = new Set(
+          (allCerts as { category: string | null }[])
+            .map((c) => c.category)
+            .filter((id): id is string => !!id)
+        );
+        const derivedCategories = Array.from(usedIds).map((id) => ({
+          id,
+          name: id,
+          slug: id,
+        }));
+        setCategories(derivedCategories);
+
+        // Set form state
+        const row = certData as CertRow;
+        setCertType(row.cert_type);
+        setName(row.name);
+        setVendor(row.vendor);
+        setCategory(row.category ?? "");
+        setLevel(row.level ?? "");
+        setStatus(row.status);
+        setIssueDate(row.issue_date ?? "");
+        setExpiryDate(row.expiry_date ?? "");
+        setCredentialId(row.credential_id ?? "");
+        setCredentialUrl(row.credential_url ?? "");
+        setScore(row.score != null ? String(row.score) : "");
+        setHighlight(row.highlight);
+        setNotes(row.notes ?? "");
+        setCurrentBadgeUrl(row.badge_image_url ?? null);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-      if (certRes.error) {
-        setError(certRes.error.message)
-        setLoading(false)
-        return
-      }
-      if (!certRes.data) {
-        setError("Certification not found.")
-        setLoading(false)
-        return
-      }
-
-      setCategories(catRes.data as CertCategoryRow[])
-
-      const row = certRes.data as CertRow
-
-      setCertType(row.cert_type)
-      setName(row.name)
-      setVendor(row.vendor)
-      setCategoryId(row.category_id ?? "")
-      setLevel(row.level ?? "")
-      setStatus(row.status)
-      setIssueDate(row.issue_date ?? "")
-      setExpiryDate(row.expiry_date ?? "")
-      setCredentialId(row.credential_id ?? "")
-      setCredentialUrl(row.credential_url ?? "")
-      setScore(row.score != null ? String(row.score) : "")
-      setHighlight(row.highlight)
-      setNotes(row.notes ?? "")
-      setCurrentBadgeUrl(row.badge_image_url ?? null)
-
-      setLoading(false)
-    }
+    };
 
     if (certId) {
-      load()
+      load();
     }
-  }, [certId])
+  }, [certId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSaving(true)
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
 
     try {
       if (!name.trim()) {
-        setError("Please enter certification name.")
-        setSaving(false)
-        return
+        setError("Please enter certification name.");
+        setSaving(false);
+        return;
       }
       if (!vendor.trim()) {
-        setError("Please enter vendor / organization.")
-        setSaving(false)
-        return
+        setError("Please enter vendor / organization.");
+        setSaving(false);
+        return;
       }
 
       // 1) จัดการรูป badge
-      let finalBadgeUrl: string | null = currentBadgeUrl
+      let finalBadgeUrl: string | null = currentBadgeUrl;
 
       // ถ้า user เลือก clear badge → ล้างทิ้ง
       if (clearBadge) {
-        finalBadgeUrl = null
+        finalBadgeUrl = null;
       }
 
       // ถ้ามีไฟล์ใหม่ → upload ทับ
       if (badgeFile) {
-        const fileExt = badgeFile.name.split(".").pop() || "png"
-        const safeName = slugify(name || "cert")
-        const fileName = `badge-${safeName}-${Date.now()}.${fileExt}`
+        const fileExt = badgeFile.name.split(".").pop() || "png";
+        const safeName = (name || "cert")
+          .toLowerCase()
+          .replace(/[\s_]+/g, "-")
+          .replace(/[^a-z0-9-]/g, "");
+        const fileName = `badge-${safeName}-${Date.now()}.${fileExt}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("cert-images")
           .upload(fileName, badgeFile, {
             upsert: true,
-          })
+          });
 
         if (uploadError) {
-          setError("Upload badge image failed: " + uploadError.message)
-          setSaving(false)
-          return
+          setError("Upload badge image failed: " + uploadError.message);
+          setSaving(false);
+          return;
         }
 
         const { data: publicUrlData } = supabase.storage
           .from("cert-images")
-          .getPublicUrl(uploadData.path)
+          .getPublicUrl(uploadData.path);
 
-        finalBadgeUrl = publicUrlData.publicUrl
+        finalBadgeUrl = publicUrlData.publicUrl;
       }
 
       // 2) payload สำหรับ update
-      const payload: CertUpdate = {
+      const payload: any = {
         cert_type: certType,
         name: name.trim(),
         vendor: vendor.trim(),
-        category_id: categoryId || null,
+        category: category || null,
         level: level || null,
         status,
         issue_date: issueDate || null,
@@ -224,26 +220,25 @@ export default function EditCertificationPage() {
         highlight,
         notes: notes || null,
         badge_image_url: finalBadgeUrl,
-      }
+      };
 
-      // Type narrowing for Supabase typed client can be strict here; cast to allow update payload.
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("certs")
         .update(payload)
-        .eq("id", certId)
+        .eq("id", certId);
 
       if (error) {
-        setError(error.message)
-        setSaving(false)
-        return
+        setError(error.message);
+        setSaving(false);
+        return;
       }
 
-      router.push("/admin/certifications")
+      router.push("/admin/certifications");
     } catch (err: any) {
-      setError(err.message ?? "Unknown error")
-      setSaving(false)
+      setError(err.message ?? "Unknown error");
+      setSaving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -255,7 +250,7 @@ export default function EditCertificationPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -364,12 +359,15 @@ export default function EditCertificationPage() {
               <div className="space-y-1.5">
                 <Label>Category</Label>
                 <Select
-                  value={categoryId || "none"}
+                  value={isCustomCategory ? "_custom_" : category || "none"}
                   onValueChange={(val) => {
-                    if (val === "none") {
-                      setCategoryId("")
+                    if (val === "_custom_") {
+                      setIsCustomCategory(true);
+                      setCategory("");
                     } else {
-                      setCategoryId(val)
+                      setIsCustomCategory(false);
+                      if (val === "none") setCategory("");
+                      else setCategory(val);
                     }
                   }}
                 >
@@ -383,8 +381,23 @@ export default function EditCertificationPage() {
                         {c.name}
                       </SelectItem>
                     ))}
+                    <SelectItem
+                      value="_custom_"
+                      className="font-medium text-primary"
+                    >
+                      + Create new category
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+                {isCustomCategory && (
+                  <Input
+                    className="mt-2 h-8 text-xs"
+                    placeholder="Enter new category name..."
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    autoFocus
+                  />
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -459,13 +472,11 @@ export default function EditCertificationPage() {
                 <div className="space-y-0.5">
                   <Label>Highlight in portfolio</Label>
                   <p className="text-[11px] text-muted-foreground">
-                    Mark this as a key certification to show in your public profile later.
+                    Mark this as a key certification to show in your public
+                    profile later.
                   </p>
                 </div>
-                <Switch
-                  checked={highlight}
-                  onCheckedChange={setHighlight}
-                />
+                <Switch checked={highlight} onCheckedChange={setHighlight} />
               </div>
             </div>
 
@@ -499,25 +510,32 @@ export default function EditCertificationPage() {
                     accept="image/*"
                     className="h-8"
                     onChange={(e) => {
-                      const file = e.target.files?.[0]
+                      const file = e.target.files?.[0];
                       if (!file) {
-                        setBadgeFile(null)
-                        setBadgePreview(null)
-                        return
+                        setBadgeFile(null);
+                        setBadgePreview(null);
+                        return;
                       }
-                      setBadgeFile(file)
-                      setBadgePreview(URL.createObjectURL(file))
-                      setClearBadge(false)
+                      setBadgeFile(file);
+
+                      // Use FileReader for CSP-safe preview
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setBadgePreview(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+
+                      setClearBadge(false);
                     }}
                   />
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={clearBadge}
                       onCheckedChange={(val) => {
-                        setClearBadge(val)
+                        setClearBadge(val);
                         if (val) {
-                          setBadgeFile(null)
-                          setBadgePreview(null)
+                          setBadgeFile(null);
+                          setBadgePreview(null);
                         }
                       }}
                     />
@@ -526,7 +544,8 @@ export default function EditCertificationPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    If you upload a new image, it will replace the existing one. Use the switch to clear image completely.
+                    If you upload a new image, it will replace the existing one.
+                    Use the switch to clear image completely.
                   </p>
                 </div>
               </div>
@@ -559,5 +578,5 @@ export default function EditCertificationPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

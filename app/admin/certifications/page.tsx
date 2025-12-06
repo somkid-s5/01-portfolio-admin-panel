@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 import {
   Card,
@@ -32,19 +33,26 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-
-import { Plus, Trophy, Calendar, Filter, AlertTriangle } from "lucide-react";
+  Plus,
+  Trophy,
+  Calendar,
+  Filter,
+  AlertTriangle,
+  Trash2,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type CertType = "exam" | "training" | "other";
 type CertStatus = "planned" | "in_progress" | "passed" | "expired";
@@ -61,7 +69,7 @@ type CertRow = {
   cert_type: CertType;
   name: string;
   vendor: string;
-  category_id: string | null;
+  category: string | null;
   level: string | null;
   status: CertStatus;
   issue_date: string | null;
@@ -80,7 +88,6 @@ function formatDate(value: string | null) {
   return d.toLocaleDateString();
 }
 
-// ใช้ประเมิน expiry state สำหรับ UI
 function getExpiryState(
   expiryDate: string | null,
   status: CertStatus
@@ -89,20 +96,9 @@ function getExpiryState(
   const now = new Date();
   const exp = new Date(expiryDate);
   if (Number.isNaN(exp.getTime())) return "none";
-
-  // ถ้า status = expired หรือวันหมดอายุอยู่ในอดีต
-  if (status === "expired" || exp.getTime() < now.getTime()) {
-    return "expired";
-  }
-
-  const diffMs = exp.getTime() - now.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  if (diffDays <= 60) {
-    return "soon";
-  }
-
-  return "ok";
+  if (status === "expired" || exp.getTime() < now.getTime()) return "expired";
+  const diffDays = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays <= 60 ? "soon" : "ok";
 }
 
 function statusBadgeVariant(status: CertStatus) {
@@ -133,72 +129,46 @@ function typeLabel(type: CertType) {
   }
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}
-
 export default function CertificationsPage() {
   const router = useRouter();
   const db = supabase as any;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [certs, setCerts] = useState<CertRow[]>([]);
   const [categories, setCategories] = useState<CertCategoryRow[]>([]);
 
-  // filters
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<CertType | "all">("all");
   const [filterStatus, setFilterStatus] = useState<CertStatus | "all">("all");
   const [filterVendor, setFilterVendor] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
-  // category management
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatSlug, setNewCatSlug] = useState("");
-  const [newCatSaving, setNewCatSaving] = useState(false);
-  const [catError, setCatError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [certToDelete, setCertToDelete] = useState<string | null>(null);
 
+  // Load certifications (categories table no longer exists)
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
-
-      const [catRes, certRes] = await Promise.all([
-        db
-          .from("cert_categories")
-          .select("id, name, slug")
-          .order("sort_order", { ascending: true }),
-        db
+      try {
+        const certRes = await db
           .from("certs")
           .select(
-            "id, cert_type, name, vendor, category_id, level, status, issue_date, expiry_date, credential_id, credential_url, score, highlight, badge_image_url"
+            "id, cert_type, name, vendor, category, level, status, issue_date, expiry_date, credential_id, credential_url, score, highlight, badge_image_url"
           )
           .order("issue_date", { ascending: false })
-          .order("created_at", { ascending: false }),
-      ]);
-
-      if (catRes.error || certRes.error) {
-        setError(
-          catRes.error?.message ||
-          certRes.error?.message ||
-          "Failed to load certifications."
-        );
+          .order("created_at", { ascending: false });
+        if (certRes.error) throw new Error(certRes.error.message);
+        setCerts(certRes.data as CertRow[]);
+        setCategories([]); // No categories table
+      } catch (e: any) {
+        setError(e.message || "Failed to load certifications.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setCategories(catRes.data as CertCategoryRow[]);
-      setCerts(certRes.data as CertRow[]);
-      setLoading(false);
     };
-
     load();
   }, []);
 
@@ -208,17 +178,18 @@ export default function CertificationsPage() {
     return Array.from(set).sort();
   }, [certs]);
 
+  const usedCategories = useMemo(() => {
+    const usedIds = new Set(certs.map((c) => c.category).filter(Boolean));
+    return categories.filter((c) => usedIds.has(c.id));
+  }, [certs, categories]);
+
   const filteredCerts = useMemo(() => {
     return certs.filter((c) => {
       if (filterType !== "all" && c.cert_type !== filterType) return false;
       if (filterStatus !== "all" && c.status !== filterStatus) return false;
       if (filterVendor !== "all" && c.vendor !== filterVendor) return false;
-      if (
-        filterCategory !== "all" &&
-        (c.category_id ?? "none") !== filterCategory
-      )
+      if (filterCategory !== "all" && (c.category ?? "none") !== filterCategory)
         return false;
-
       if (search.trim()) {
         const q = search.toLowerCase();
         if (
@@ -227,11 +198,9 @@ export default function CertificationsPage() {
             c.vendor.toLowerCase().includes(q) ||
             (c.level ?? "").toLowerCase().includes(q)
           )
-        ) {
+        )
           return false;
-        }
       }
-
       return true;
     });
   }, [certs, filterType, filterStatus, filterVendor, filterCategory, search]);
@@ -242,73 +211,54 @@ export default function CertificationsPage() {
     return cat?.name ?? "—";
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    setCatError(null);
+    e.stopPropagation();
+    setCertToDelete(id);
+    setDeleteDialogOpen(true);
+  };
 
-    const name = newCatName.trim();
-    const slug = (newCatSlug || slugify(name)).trim();
-
-    if (!name) {
-      setCatError("Please enter category name.");
-      return;
-    }
-    if (!slug) {
-      setCatError("Please enter slug.");
-      return;
-    }
-
-    setNewCatSaving(true);
-
-    try {
-      // หาค่า sort_order ถัดไปง่าย ๆ = max + 1
-      const { data: existingCats, error: catLoadError } = await db
-        .from("cert_categories")
-        .select("sort_order")
-        .order("sort_order", { ascending: false })
-        .limit(1);
-
-      if (catLoadError) {
-        setCatError(catLoadError.message);
-        setNewCatSaving(false);
-        return;
+  const confirmDelete = async () => {
+    if (!certToDelete) return;
+    const id = certToDelete;
+    setDeleteDialogOpen(false);
+    const cert = certs.find((c) => c.id === id);
+    const deleteOperation = async () => {
+      try {
+        if (cert?.badge_image_url) {
+          const url = cert.badge_image_url;
+          let bucketName = "cert-images";
+          if (url.includes("/cert-images/")) bucketName = "cert-images";
+          else if (url.includes("/badges/")) bucketName = "badges";
+          else if (url.includes("/cert-badges/")) bucketName = "cert-badges";
+          if (url.includes(bucketName)) {
+            const rawPath = url.split(`${bucketName}/`)[1];
+            if (rawPath) {
+              const path = decodeURIComponent(rawPath);
+              const { error: storageError } = await db.storage
+                .from(bucketName)
+                .remove([path]);
+              if (storageError)
+                console.error("Storage Delete Error:", storageError);
+            }
+          }
+        }
+        const { error } = await db.from("certs").delete().eq("id", id);
+        if (error) throw error;
+        return true;
+      } catch (e) {
+        console.error("Unexpected Error:", e);
+        throw e;
       }
-
-      const nextSort =
-        existingCats && existingCats.length > 0
-          ? ((existingCats[0] as { sort_order: number | null }).sort_order ?? 0) + 1
-          : 0;
-
-      const { data: insertData, error: insertError } = await db
-        .from("cert_categories")
-        .insert({
-          name,
-          slug,
-          sort_order: nextSort,
-        })
-        .select("id, name, slug, sort_order")
-        .single();
-
-      if (insertError) {
-        setCatError(insertError.message);
-        setNewCatSaving(false);
-        return;
-      }
-
-      // อัปเดต state local ให้ list ขยายทันที
-      setCategories((prev) =>
-        [...prev, insertData as any].sort((a, b) => a.sort_order - b.sort_order)
-      );
-
-      // reset form
-      setNewCatName("");
-      setNewCatSlug("");
-      setCatError(null);
-      setNewCatSaving(false);
-    } catch (err: any) {
-      setCatError(err.message ?? "Unknown error");
-      setNewCatSaving(false);
-    }
+    };
+    toast.promise(deleteOperation(), {
+      loading: "Deleting certification...",
+      success: () => {
+        setCerts((prev) => prev.filter((c) => c.id !== id));
+        return "Certification deleted successfully";
+      },
+      error: (err: any) => `Failed to delete certification: ${err.message}`,
+    });
   };
 
   return (
@@ -323,130 +273,12 @@ export default function CertificationsPage() {
             Track your exams and training certificates in one place.
           </p>
         </div>
-
         <div className="flex items-center gap-2">
-          <Dialog
-            open={categoryDialogOpen}
-            onOpenChange={setCategoryDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                Manage categories
-              </Button>
-            </DialogTrigger>
-
-            {/* Dialog content อยู่ด้านล่างเดี๋ยวใส่ต่อ */}
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Manage certification categories</DialogTitle>
-                <DialogDescription>
-                  Group your certifications into buckets like Cloud, Network,
-                  Security, Database, and more.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-2">
-                {/* list categories */}
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Existing categories
-                  </p>
-                  {categories.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No categories yet. Create your first one below.
-                    </p>
-                  ) : (
-                    <div className="max-h-48 overflow-y-auto rounded-md border border-border/60">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted/60">
-                          <tr className="text-left">
-                            <th className="px-2 py-1.5 w-[40%]">Name</th>
-                            <th className="px-2 py-1.5 w-[40%]">Slug</th>
-                            <th className="px-2 py-1.5 w-[20%] text-right">
-                              Order
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {categories
-                            .slice()
-                            .sort((a, b) => a.sort_order - b.sort_order)
-                            .map((cat) => (
-                              <tr
-                                key={cat.id}
-                                className="border-t border-border/40"
-                              >
-                                <td className="px-2 py-1.5 text-[11px]">
-                                  {cat.name}
-                                </td>
-                                <td className="px-2 py-1.5 text-[11px] text-muted-foreground">
-                                  {cat.slug}
-                                </td>
-                                <td className="px-2 py-1.5 text-[11px] text-right text-muted-foreground">
-                                  {cat.sort_order ?? 0}
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* add new category form */}
-                <div className="space-y-2 pt-2 border-t border-border/40">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Add new category
-                  </p>
-                  {catError && (
-                    <p className="text-[11px] text-destructive">{catError}</p>
-                  )}
-
-                  <form className="space-y-2" onSubmit={handleCreateCategory}>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="catName">Name</Label>
-                        <Input
-                          id="catName"
-                          className="h-8 text-xs"
-                          placeholder="e.g. Cloud, Network, Security"
-                          value={newCatName}
-                          onChange={(e) => {
-                            setNewCatName(e.target.value);
-                            if (!newCatSlug) {
-                              setNewCatSlug(slugify(e.target.value));
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="catSlug">Slug</Label>
-                        <Input
-                          id="catSlug"
-                          className="h-8 text-xs"
-                          placeholder="cloud, network, security"
-                          value={newCatSlug}
-                          onChange={(e) => setNewCatSlug(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter className="mt-2">
-                      <Button type="submit" size="sm" disabled={newCatSaving}>
-                        {newCatSaving ? "Saving…" : "Add category"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
           <Button
             size="sm"
             onClick={() => router.push("/admin/certifications/new")}
           >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add certification
+            <Plus className="mr-1.5 h-4 w-4" /> Add certification
           </Button>
         </div>
       </div>
@@ -466,8 +298,8 @@ export default function CertificationsPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-primary" />
-                Certification overview
+                <Trophy className="h-4 w-4 text-primary" /> Certification
+                overview
               </CardTitle>
               <CardDescription>
                 Filter by cert type, vendor, and status. Great for planning your
@@ -545,28 +377,28 @@ export default function CertificationsPage() {
                 value={filterCategory}
                 onValueChange={(val) => setFilterCategory(val)}
               >
-                <SelectTrigger className="h-8  w-40 text-xs">
+                <SelectTrigger className="h-8 w-40 text-xs">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
-                  {categories.map((c) => (
+                  {usedCategories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            {/* search */}
-            <div className="w-full md:w-60 ">
-              <Input
-                placeholder="Search name, vendor, level…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 text-xs"
-              />
+              {/* search */}
+              <div className="w-full md:w-60 ">
+                <Input
+                  placeholder="Search name, vendor, level…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
             </div>
           </div>
 
@@ -597,6 +429,9 @@ export default function CertificationsPage() {
                           <Skeleton className="h-4 w-[180px]" />
                           <Skeleton className="h-3 w-[100px]" />
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[100px]" />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-4 w-[100px]" />
@@ -640,9 +475,7 @@ export default function CertificationsPage() {
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Issue / Expiry</TableHead>
-                    <TableHead className="text-right w-20">
-                      Actions
-                    </TableHead>
+                    <TableHead className="text-right w-20">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -651,10 +484,9 @@ export default function CertificationsPage() {
                       cert.expiry_date,
                       cert.status
                     );
-
                     return (
                       <TableRow key={cert.id}>
-                        {/* รูป / Badge */}
+                        {/* Badge */}
                         <TableCell>
                           <div className="w-9 h-9 rounded-md border border-border/60 bg-muted/40 overflow-hidden flex items-center justify-center">
                             {cert.badge_image_url ? (
@@ -672,8 +504,7 @@ export default function CertificationsPage() {
                             )}
                           </div>
                         </TableCell>
-
-                        {/* ชื่อ + level */}
+                        {/* Name + level */}
                         <TableCell>
                           <div className="flex flex-col">
                             <span className="text-sm font-medium">
@@ -684,13 +515,10 @@ export default function CertificationsPage() {
                             </span>
                           </div>
                         </TableCell>
-
                         <TableCell className="text-sm">{cert.vendor}</TableCell>
-
                         <TableCell className="text-sm">
-                          {getCategoryName(cert.category_id)}
+                          {getCategoryName(cert.category)}
                         </TableCell>
-
                         <TableCell className="text-xs">
                           <Badge
                             variant="outline"
@@ -699,8 +527,7 @@ export default function CertificationsPage() {
                             {typeLabel(cert.cert_type)}
                           </Badge>
                         </TableCell>
-
-                        <TableCell>
+                        <TableCell className="text-xs">
                           <Badge
                             variant={statusBadgeVariant(cert.status)}
                             className="text-[10px] h-5 px-2 capitalize"
@@ -708,7 +535,6 @@ export default function CertificationsPage() {
                             {cert.status.replace("_", " ")}
                           </Badge>
                         </TableCell>
-
                         {/* Issue / Expiry + warning */}
                         <TableCell className="text-xs">
                           <div className="flex flex-col gap-0.5">
@@ -722,7 +548,7 @@ export default function CertificationsPage() {
                                   variant="outline"
                                   className="text-[9px] h-4 px-1.5 text-amber-500 border-amber-500/40"
                                 >
-                                  <AlertTriangle className="mr-1 h-3 w-3" />
+                                  <AlertTriangle className="mr-1 h-3 w-3" />{" "}
                                   Soon
                                 </Badge>
                               )}
@@ -731,14 +557,13 @@ export default function CertificationsPage() {
                                   variant="destructive"
                                   className="text-[9px] h-4 px-1.5"
                                 >
-                                  <AlertTriangle className="mr-1 h-3 w-3" />
+                                  <AlertTriangle className="mr-1 h-3 w-3" />{" "}
                                   Expired
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </TableCell>
-
                         <TableCell className="text-right">
                           <Button
                             size="sm"
@@ -750,6 +575,14 @@ export default function CertificationsPage() {
                           >
                             Edit
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 ml-2"
+                            onClick={(e) => handleDeleteClick(e, cert.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -760,6 +593,27 @@ export default function CertificationsPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              certification and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

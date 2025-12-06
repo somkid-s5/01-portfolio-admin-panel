@@ -1,8 +1,9 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabaseClient"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 import {
   Card,
@@ -10,19 +11,10 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs"
-import {
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from "@/components/ui/alert"
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +22,20 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -41,54 +43,61 @@ import {
   TableHeader,
   TableRow,
   TableCell,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
-
-
-import { Plus, Pencil, Trash2, FileText, Folder } from "lucide-react"
-import { slugify } from "@/lib/utils"
-import { DocPage, DocSection } from "./types"
+import { Plus, Pencil, Trash2, FileText, Folder } from "lucide-react";
+import { slugify } from "@/lib/utils";
+import { DocPage, DocSection } from "./types";
 
 export default function DocsAdminPage() {
-  const router = useRouter()
-  const db = supabase as any
+  const router = useRouter();
+  const db = supabase as any;
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [sections, setSections] = useState<DocSection[]>([])
-  const [pages, setPages] = useState<DocPage[]>([])
+  const [sections, setSections] = useState<DocSection[]>([]);
+  const [pages, setPages] = useState<DocPage[]>([]);
 
   // modal state
-  const [createSectionOpen, setCreateSectionOpen] = useState(false)
-  const [createItemOpen, setCreateItemOpen] = useState(false)
-  const [targetSectionId, setTargetSectionId] = useState<string | null>(null)
+  const [createSectionOpen, setCreateSectionOpen] = useState(false);
+  const [createItemOpen, setCreateItemOpen] = useState(false);
+  const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
 
-  const [newSectionName, setNewSectionName] = useState("")
-  const [newItemTitle, setNewItemTitle] = useState("")
-  const [newItemSlug, setNewItemSlug] = useState("")
+  const [newSectionName, setNewSectionName] = useState("");
+  const [newItemTitle, setNewItemTitle] = useState("");
+  const [newItemSlug, setNewItemSlug] = useState("");
+
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: "section" | "page";
+    id: string;
+  } | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const [{ data: secData, error: secErr }, { data: pageData, error: pageErr }] =
-        await Promise.all([
-          db
-            .from("doc_sections")
-            .select("id, name, slug, description, sort_order")
-            .order("sort_order", { ascending: true }),
-          db
-            .from("doc_pages")
-            .select("id, section_id, title, slug, excerpt, status, sort_order")
-            .order("sort_order", { ascending: true }),
-        ])
+      const [
+        { data: secData, error: secErr },
+        { data: pageData, error: pageErr },
+      ] = await Promise.all([
+        db
+          .from("doc_sections")
+          .select("id, name, slug, description, sort_order")
+          .order("sort_order", { ascending: true }),
+        db
+          .from("doc_pages")
+          .select("id, section_id, title, slug, excerpt, status, sort_order")
+          .order("sort_order", { ascending: true }),
+      ]);
 
       if (secErr || pageErr) {
-        setError(secErr?.message || pageErr?.message || "Failed to load docs.")
-        setLoading(false)
-        return
+        setError(secErr?.message || pageErr?.message || "Failed to load docs.");
+        setLoading(false);
+        return;
       }
 
       setSections(
@@ -99,7 +108,7 @@ export default function DocsAdminPage() {
           description: "description" in row ? row.description : null,
           sort_order: "sort_order" in row ? row.sort_order : null,
         }))
-      )
+      );
       setPages(
         (pageData ?? []).map((row: any) => ({
           id: row.id,
@@ -110,33 +119,33 @@ export default function DocsAdminPage() {
           status: row.status,
           sort_order: row.sort_order,
         }))
-      )
-      setLoading(false)
-    }
+      );
+      setLoading(false);
+    };
 
-    load()
-  }, [])
+    load();
+  }, []);
 
   const refresh = async () => {
-    setLoading(true)
-    setError(null)
-
-    const [{ data: secData, error: secErr }, { data: pageData, error: pageErr }] =
-      await Promise.all([
-        db
-          .from("doc_sections")
-          .select("id, name, slug, description, sort_order")
-          .order("sort_order", { ascending: true }),
-        db
-          .from("doc_pages")
-          .select("id, section_id, title, slug, excerpt, status, sort_order")
-          .order("sort_order", { ascending: true }),
-      ])
+    // Silent refresh mostly, or minimal loading state if needed
+    // For now we keep it simple
+    const [
+      { data: secData, error: secErr },
+      { data: pageData, error: pageErr },
+    ] = await Promise.all([
+      db
+        .from("doc_sections")
+        .select("id, name, slug, description, sort_order")
+        .order("sort_order", { ascending: true }),
+      db
+        .from("doc_pages")
+        .select("id, section_id, title, slug, excerpt, status, sort_order")
+        .order("sort_order", { ascending: true }),
+    ]);
 
     if (secErr || pageErr) {
-      setError(secErr?.message || pageErr?.message || "Failed to reload docs.")
-      setLoading(false)
-      return
+      toast.error("Failed to refresh data");
+      return;
     }
 
     setSections(
@@ -147,7 +156,7 @@ export default function DocsAdminPage() {
         description: "description" in row ? row.description : null,
         sort_order: "sort_order" in row ? row.sort_order : null,
       }))
-    )
+    );
     setPages(
       (pageData ?? []).map((row: any) => ({
         id: row.id,
@@ -158,47 +167,46 @@ export default function DocsAdminPage() {
         status: row.status,
         sort_order: row.sort_order,
       }))
-    )
-    setLoading(false)
-  }
+    );
+  };
 
   // ---------- create section ----------
   const handleCreateSection = async () => {
-    if (!newSectionName.trim()) return
+    if (!newSectionName.trim()) return;
 
-    const slug = slugify(newSectionName)
-    const sortOrder =
-      (sections[sections.length - 1]?.sort_order ?? 0) + 10
+    const slug = slugify(newSectionName);
+    const sortOrder = (sections[sections.length - 1]?.sort_order ?? 0) + 10;
 
     const { error } = await db.from("doc_sections").insert({
       name: newSectionName.trim(),
       slug,
       sort_order: sortOrder,
-    })
+    });
 
     if (error) {
-      setError(error.message)
-      return
+      toast.error(error.message);
+      return;
     }
 
-    setNewSectionName("")
-    setCreateSectionOpen(false)
-    refresh()
-  }
+    setNewSectionName("");
+    setCreateSectionOpen(false);
+    refresh();
+    toast.success("Section created");
+  };
 
   // ---------- create item (page skeleton) ----------
   const handleCreateItem = async () => {
-    if (!targetSectionId || !newItemTitle.trim()) return
+    if (!targetSectionId || !newItemTitle.trim()) return;
 
     const slug = newItemSlug.trim()
       ? slugify(newItemSlug)
-      : slugify(newItemTitle)
+      : slugify(newItemTitle);
 
     const pagesInSection = pages.filter(
       (p) => p.section_id === targetSectionId
-    )
+    );
     const sortOrder =
-      (pagesInSection[pagesInSection.length - 1]?.sort_order ?? 0) + 10
+      (pagesInSection[pagesInSection.length - 1]?.sort_order ?? 0) + 10;
 
     const { error } = await db.from("doc_pages").insert({
       section_id: targetSectionId,
@@ -206,63 +214,65 @@ export default function DocsAdminPage() {
       slug,
       status: "draft",
       sort_order: sortOrder,
-    })
+    });
 
     if (error) {
-      setError(error.message)
-      return
+      toast.error(error.message);
+      return;
     }
 
-    setNewItemTitle("")
-    setNewItemSlug("")
-    setCreateItemOpen(false)
-    setTargetSectionId(null)
-    refresh()
-  }
+    setNewItemTitle("");
+    setNewItemSlug("");
+    setCreateItemOpen(false);
+    setTargetSectionId(null);
+    refresh();
+    toast.success("Doc item created");
+  };
 
-  // ---------- delete section ----------
-  const handleDeleteSection = async (sectionId: string) => {
-    const confirmed = window.confirm(
-      "Delete this section and all its pages?"
-    )
-    if (!confirmed) return
+  // ---------- delete handlers ----------
+  const handleDeleteSectionClick = (sectionId: string) => {
+    setDeleteTarget({ type: "section", id: sectionId });
+    setDeleteDialogOpen(true);
+  };
 
-    const { error } = await db
-      .from("doc_sections")
-      .delete()
-      .eq("id", sectionId)
+  const handleDeletePageClick = (pageId: string) => {
+    setDeleteTarget({ type: "page", id: pageId });
+    setDeleteDialogOpen(true);
+  };
 
-    if (error) {
-      setError(error.message)
-      return
-    }
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
 
-    refresh()
-  }
+    const { type, id } = deleteTarget;
+    setDeleteDialogOpen(false);
 
-  // ---------- delete page ----------
-  const handleDeletePage = async (pageId: string) => {
-    const confirmed = window.confirm("Delete this doc page?")
-    if (!confirmed) return
+    const deleteOperation = async () => {
+      if (type === "section") {
+        const { error } = await db.from("doc_sections").delete().eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await db.from("doc_pages").delete().eq("id", id);
+        if (error) throw error;
+      }
+    };
 
-    const { error } = await db
-      .from("doc_pages")
-      .delete()
-      .eq("id", pageId)
-
-    if (error) {
-      setError(error.message)
-      return
-    }
-
-    refresh()
-  }
+    toast.promise(deleteOperation(), {
+      loading: `Deleting ${type}...`,
+      success: () => {
+        refresh();
+        return `${
+          type === "section" ? "Section" : "Page"
+        } deleted successfully`;
+      },
+      error: (err: any) => `Failed to delete: ${err.message}`,
+    });
+  };
 
   const pagesBySection = (sectionId: string) =>
-    pages.filter((p) => p.section_id === sectionId)
+    pages.filter((p) => p.section_id === sectionId);
 
   const sectionItemsCount = (sectionId: string) =>
-    pagesBySection(sectionId).length
+    pagesBySection(sectionId).length;
 
   return (
     <div className="space-y-6">
@@ -273,13 +283,11 @@ export default function DocsAdminPage() {
             Documentation Management
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage your documentation sections and content for the public docs site.
+            Manage your documentation sections and content for the public docs
+            site.
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => setCreateSectionOpen(true)}
-        >
+        <Button size="sm" onClick={() => setCreateSectionOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
           Add section
         </Button>
@@ -308,7 +316,8 @@ export default function DocsAdminPage() {
                 Documentation structure
               </CardTitle>
               <CardDescription>
-                Organize your sections and items. Drag-and-drop can be added later; for now use this page to manage sections and doc items.
+                Organize your sections and items. Drag-and-drop can be added
+                later; for now use this page to manage sections and doc items.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -364,8 +373,8 @@ export default function DocsAdminPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setTargetSectionId(section.id)
-                            setCreateItemOpen(true)
+                            setTargetSectionId(section.id);
+                            setCreateItemOpen(true);
                           }}
                         >
                           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -378,19 +387,16 @@ export default function DocsAdminPage() {
                           onClick={() => {
                             // ภายหลังจะทำหน้า edit section แยก ถ้าต้องการ
                             const newName =
-                              window.prompt(
-                                "Rename section",
-                                section.name
-                              ) ?? ""
-                            if (!newName.trim()) return
-                            db
-                              .from("doc_sections")
+                              window.prompt("Rename section", section.name) ??
+                              "";
+                            if (!newName.trim()) return;
+                            db.from("doc_sections")
                               .update({
                                 name: newName.trim(),
                                 slug: slugify(newName),
                               })
                               .eq("id", section.id)
-                              .then(() => refresh())
+                              .then(() => refresh());
                           }}
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -399,7 +405,7 @@ export default function DocsAdminPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteSection(section.id)}
+                          onClick={() => handleDeleteSectionClick(section.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -447,7 +453,7 @@ export default function DocsAdminPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => handleDeletePage(page.id)}
+                              onClick={() => handleDeletePageClick(page.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -479,7 +485,8 @@ export default function DocsAdminPage() {
                 All documentation pages
               </CardTitle>
               <CardDescription>
-                Overview of all docs pages. Use this tab to jump into editing content.
+                Overview of all docs pages. Use this tab to jump into editing
+                content.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -495,9 +502,7 @@ export default function DocsAdminPage() {
               </div>
 
               {loading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading pages…
-                </p>
+                <p className="text-sm text-muted-foreground">Loading pages…</p>
               ) : pages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No docs pages created yet.
@@ -518,7 +523,7 @@ export default function DocsAdminPage() {
                     {pages.map((page) => {
                       const section = sections.find(
                         (s) => s.id === page.section_id
-                      )
+                      );
                       return (
                         <TableRow key={page.id}>
                           <TableCell>
@@ -555,7 +560,7 @@ export default function DocsAdminPage() {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      )
+                      );
                     })}
                   </TableBody>
                 </Table>
@@ -569,8 +574,8 @@ export default function DocsAdminPage() {
       <Dialog
         open={createSectionOpen}
         onOpenChange={(open) => {
-          setCreateSectionOpen(open)
-          if (!open) setNewSectionName("")
+          setCreateSectionOpen(open);
+          if (!open) setNewSectionName("");
         }}
       >
         <DialogContent>
@@ -607,11 +612,11 @@ export default function DocsAdminPage() {
       <Dialog
         open={createItemOpen}
         onOpenChange={(open) => {
-          setCreateItemOpen(open)
+          setCreateItemOpen(open);
           if (!open) {
-            setNewItemTitle("")
-            setNewItemSlug("")
-            setTargetSectionId(null)
+            setNewItemTitle("");
+            setNewItemSlug("");
+            setTargetSectionId(null);
           }
         }}
       >
@@ -630,9 +635,9 @@ export default function DocsAdminPage() {
                 placeholder="e.g. Introduction"
                 value={newItemTitle}
                 onChange={(e) => {
-                  setNewItemTitle(e.target.value)
+                  setNewItemTitle(e.target.value);
                   if (!newItemSlug) {
-                    setNewItemSlug(slugify(e.target.value))
+                    setNewItemSlug(slugify(e.target.value));
                   }
                 }}
               />
@@ -648,16 +653,36 @@ export default function DocsAdminPage() {
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setCreateItemOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setCreateItemOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateItem}>Add item</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* -------- ALERT DIALOG: DELETE CONFIRMATION -------- */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.type === "section"
+                ? "This will delete the section and ALL pages inside it. This action cannot be undone."
+                : "This will delete this documentation page. This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
-  )
+  );
 }

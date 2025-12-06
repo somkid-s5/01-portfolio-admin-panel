@@ -48,7 +48,7 @@ export default function NewCertificationPage() {
   const [certType, setCertType] = useState<CertType>("exam");
   const [name, setName] = useState("");
   const [vendor, setVendor] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
+  const [category, setCategory] = useState<string>("");
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState<CertStatus>("planned");
   const [issueDate, setIssueDate] = useState<string>("");
@@ -58,38 +58,46 @@ export default function NewCertificationPage() {
   const [score, setScore] = useState<string>("");
   const [highlight, setHighlight] = useState(false);
   const [notes, setNotes] = useState("");
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   const [badgeFile, setBadgeFile] = useState<File | null>(null);
   const [badgePreview, setBadgePreview] = useState<string | null>(null);
 
+  // Load categories derived from existing certifications (no cert_categories table)
   useEffect(() => {
-    const loadCategories = async () => {
+    const load = async () => {
       setLoadingCategories(true);
       setError(null);
+      try {
+        const { data, error } = await supabase.from("certs").select("category");
 
-      const { data, error } = await supabase
-        .from("cert_categories")
-        .select("id, name, slug")
-        .order("sort_order", { ascending: true });
+        if (error) throw new Error(error.message);
 
-      if (error) {
-        setError(error.message);
+        const usedIds = new Set(
+          (data as { category: string | null }[])
+            .map((c) => c.category)
+            .filter((id): id is string => !!id)
+        );
+        const derived = Array.from(usedIds).map((id) => ({
+          id,
+          name: id,
+          slug: id,
+        }));
+        setCategories(derived);
+      } catch (e: any) {
+        setError(e.message || "Failed to load categories.");
+      } finally {
         setLoadingCategories(false);
-        return;
       }
-
-      setCategories(data as CertCategoryRow[]);
-      setLoadingCategories(false);
     };
-
-    loadCategories();
+    load();
   }, []);
 
+  // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSaving(true);
-
     try {
       if (!name.trim()) {
         setError("Please enter certification name.");
@@ -102,39 +110,34 @@ export default function NewCertificationPage() {
         return;
       }
 
-      // 1) ถ้ามีไฟล์รูป ให้ upload ไป storage ก่อน
+      // Upload badge image if provided
       let badgeImageUrl: string | null = null;
-
       if (badgeFile) {
         const fileExt = badgeFile.name.split(".").pop() || "png";
-        const safeName = slugify(name || "cert");
+        const safeName = name
+          .toLowerCase()
+          .replace(/[\s_]+/g, "-")
+          .replace(/[^a-z0-9-]/g, "");
         const fileName = `badge-${safeName}-${Date.now()}.${fileExt}`;
-
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("cert-images") // 🟢 ชื่อ bucket
-          .upload(fileName, badgeFile, {
-            upsert: true,
-          });
-
+          .from("cert-images")
+          .upload(fileName, badgeFile, { upsert: true });
         if (uploadError) {
           setError("Upload badge image failed: " + uploadError.message);
           setSaving(false);
           return;
         }
-
         const { data: publicUrlData } = supabase.storage
           .from("cert-images")
           .getPublicUrl(uploadData.path);
-
         badgeImageUrl = publicUrlData.publicUrl;
       }
 
-      // 2) สร้าง payload
       const payload: any = {
         cert_type: certType,
         name: name.trim(),
         vendor: vendor.trim(),
-        category_id: categoryId || null,
+        category: category || null,
         level: level || null,
         status,
         issue_date: issueDate || null,
@@ -147,10 +150,11 @@ export default function NewCertificationPage() {
         badge_image_url: badgeImageUrl,
       };
 
-      const { error } = await supabase.from("certs").insert(payload);
-
-      if (error) {
-        setError(error.message);
+      const { error: insertError } = await supabase
+        .from("certs")
+        .insert(payload);
+      if (insertError) {
+        setError(insertError.message);
         setSaving(false);
         return;
       }
@@ -158,20 +162,14 @@ export default function NewCertificationPage() {
       router.push("/admin/certifications");
     } catch (err: any) {
       setError(err.message ?? "Unknown error");
+    } finally {
       setSaving(false);
     }
   };
 
-  function slugify(value: string) {
-    return value
-      .toLowerCase()
-      .trim()
-      .replace(/[\s_]+/g, "-")
-      .replace(/[^a-z0-9-]/g, "");
-  }
-
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -218,7 +216,7 @@ export default function NewCertificationPage() {
                   value={certType}
                   onValueChange={(val) => setCertType(val as CertType)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -241,7 +239,7 @@ export default function NewCertificationPage() {
                   value={status}
                   onValueChange={(val) => setStatus(val as CertStatus)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -287,17 +285,20 @@ export default function NewCertificationPage() {
               <div className="space-y-1.5">
                 <Label>Category</Label>
                 <Select
-                  value={categoryId || "none"}
+                  value={isCustomCategory ? "_custom_" : category || "none"}
                   onValueChange={(val) => {
-                    if (val === "none") {
-                      setCategoryId("");
+                    if (val === "_custom_") {
+                      setIsCustomCategory(true);
+                      setCategory("");
                     } else {
-                      setCategoryId(val);
+                      setIsCustomCategory(false);
+                      if (val === "none") setCategory("");
+                      else setCategory(val);
                     }
                   }}
                   disabled={loadingCategories}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs">
                     <SelectValue
                       placeholder={
                         loadingCategories
@@ -313,9 +314,23 @@ export default function NewCertificationPage() {
                         {c.name}
                       </SelectItem>
                     ))}
+                    <SelectItem
+                      value="_custom_"
+                      className="font-medium text-primary"
+                    >
+                      + Create new category
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-
+                {isCustomCategory && (
+                  <Input
+                    className="mt-2 h-8 text-xs"
+                    placeholder="Enter new category name..."
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    autoFocus
+                  />
+                )}
                 <p className="text-[11px] text-muted-foreground">
                   For example: Network, Cloud, Security, Database, System...
                 </p>
@@ -378,13 +393,46 @@ export default function NewCertificationPage() {
               </div>
             </div>
 
-            {/* Badge image */}
+            {/* Score + Highlight */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="score">Score (optional)</Label>
+                <Input
+                  id="score"
+                  placeholder="e.g. 850"
+                  value={score}
+                  onChange={(e) => setScore(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 pt-6">
+                <Switch
+                  id="highlight"
+                  checked={highlight}
+                  onCheckedChange={setHighlight}
+                />
+                <Label htmlFor="highlight">Highlight on dashboard</Label>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1.5">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                placeholder="Any additional information..."
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            {/* Badge image upload */}
             <div className="space-y-1.5">
               <Label>Badge image (optional)</Label>
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-md border border-dashed border-border/60 flex items-center justify-center overflow-hidden bg-muted/30">
                   {badgePreview ? (
-                    // ถ้าอยากใช้ <Image /> ของ next ก็ได้ แต่ขอแบบง่ายก่อน
                     <img
                       src={badgePreview}
                       alt="Badge preview"
@@ -410,66 +458,34 @@ export default function NewCertificationPage() {
                         return;
                       }
                       setBadgeFile(file);
-                      setBadgePreview(URL.createObjectURL(file));
+
+                      // Use FileReader to create a data URL (allowed by CSP) instead of blob:
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setBadgePreview(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
                     }}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Optional. Upload certification badge/logo. Image will be
-                    uploaded on save.
+                    Upload a badge or logo for this certification.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Score + Highlight */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="score">Score (optional)</Label>
-                <Input
-                  id="score"
-                  type="number"
-                  min={0}
-                  max={1000}
-                  placeholder="e.g. 820"
-                  value={score}
-                  onChange={(e) => setScore(e.target.value)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between space-y-0 rounded-md border border-border/60 px-3 py-2.5">
-                <div className="space-y-0.5">
-                  <Label>Highlight in portfolio</Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    Mark this as a key certification to show in your public
-                    profile later.
-                  </p>
-                </div>
-                <Switch checked={highlight} onCheckedChange={setHighlight} />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-1.5">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                placeholder="Notes about this certification, attempts, next plan..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Submit buttons */}
+            <div className="flex justify-end space-x-2 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push("/admin/certifications")}
+                disabled={saving}
               >
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? "Creating…" : "Create certification"}
+                {saving ? "Saving…" : "Create certification"}
               </Button>
             </div>
           </form>
