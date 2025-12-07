@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/lib/supabaseClient";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = supabaseClient as any;
+import Image from "next/image";
 
 import {
   Card,
@@ -84,8 +87,9 @@ export default function NewCertificationPage() {
           slug: id,
         }));
         setCategories(derived);
-      } catch (e: any) {
-        setError(e.message || "Failed to load categories.");
+        setCategories(derived);
+      } catch (e: unknown) {
+        setError((e as Error).message || "Failed to load categories.");
       } finally {
         setLoadingCategories(false);
       }
@@ -133,7 +137,7 @@ export default function NewCertificationPage() {
         badgeImageUrl = publicUrlData.publicUrl;
       }
 
-      const payload: any = {
+      const payload = {
         cert_type: certType,
         name: name.trim(),
         vendor: vendor.trim(),
@@ -160,8 +164,8 @@ export default function NewCertificationPage() {
       }
 
       router.push("/admin/certifications");
-    } catch (err: any) {
-      setError(err.message ?? "Unknown error");
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -433,11 +437,14 @@ export default function NewCertificationPage() {
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-md border border-dashed border-border/60 flex items-center justify-center overflow-hidden bg-muted/30">
                   {badgePreview ? (
-                    <img
-                      src={badgePreview}
-                      alt="Badge preview"
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={badgePreview}
+                        alt="Badge preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   ) : (
                     <span className="text-[11px] text-muted-foreground text-center px-1">
                       No image

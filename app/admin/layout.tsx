@@ -8,7 +8,6 @@ import {
   FolderGit2,
   FileText,
   Award,
-  User,
   LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +16,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -138,7 +136,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
                     "text-sidebar-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
                     active &&
-                    "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary"
+                      "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary"
                   )}
                 >
                   <Icon className="h-4 w-4" />

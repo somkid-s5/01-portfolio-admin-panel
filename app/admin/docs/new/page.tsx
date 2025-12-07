@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { JSONContent } from "@tiptap/core"
-import { toast } from "sonner"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { JSONContent } from "@tiptap/core";
+import { toast } from "sonner";
 
-import { supabase } from "@/lib/supabaseClient"
-import { DocForm } from "../components/doc-form"
-import { DocFormState, DocSection, DocStatus } from "../types"
-import { slugify } from "@/lib/utils"
+import { supabase } from "@/lib/supabaseClient";
+import { DocForm } from "../components/doc-form";
+import { DocFormState, DocSection, DocStatus } from "../types";
+import { slugify } from "@/lib/utils";
 
 const initialFormState: DocFormState = {
   sectionId: "",
@@ -17,58 +17,64 @@ const initialFormState: DocFormState = {
   excerpt: "",
   status: "draft",
   contentJson: null,
-}
+};
 
 export default function NewDocPage() {
-  const router = useRouter()
-  const db = supabase as any
+  const router = useRouter();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
 
-  const [sections, setSections] = useState<DocSection[]>([])
-  const [loadingSections, setLoadingSections] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [sections, setSections] = useState<DocSection[]>([]);
+  const [loadingSections, setLoadingSections] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const loadSections = async () => {
-      setLoadingSections(true)
+      setLoadingSections(true);
 
       const { data, error: queryError } = await db
         .from("doc_sections")
         .select("id, name, slug")
-        .order("sort_order", { ascending: true })
+        .order("sort_order", { ascending: true });
 
       if (queryError) {
-        toast.error(queryError.message)
-        setLoadingSections(false)
-        return
+        toast.error(queryError.message);
+        setLoadingSections(false);
+        return;
       }
 
       setSections(
-        (data ?? []).map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          slug: row.slug,
-        }))
-      )
+        (data ?? []).map((row: unknown) => {
+          const r = row as { id: string; name: string; slug: string };
+          return {
+            id: r.id,
+            name: r.name,
+            slug: r.slug,
+          };
+        })
+      );
 
-      setLoadingSections(false)
-    }
+      setLoadingSections(false);
+    };
 
-    loadSections()
-  }, [])
+    loadSections();
+  }, [db]);
 
   const handleCreate = async (payload: {
-    section_id: string
-    title: string
-    slug: string
-    excerpt: string | null
-    status: DocStatus
-    content_json: JSONContent | null
+    section_id: string;
+    title: string;
+    slug: string;
+    excerpt: string | null;
+    status: DocStatus;
+    content_json: JSONContent | null;
   }) => {
-    setSaving(true)
+    setSaving(true);
 
     try {
-      const slugForName = (payload.slug || slugify(payload.title)).toLowerCase()
-      let sortOrder = 10
+      const slugForName = (
+        payload.slug || slugify(payload.title)
+      ).toLowerCase();
+      let sortOrder = 10;
 
       const { data: maxRow, error: maxErr } = await db
         .from("doc_pages")
@@ -76,14 +82,14 @@ export default function NewDocPage() {
         .eq("section_id", payload.section_id)
         .order("sort_order", { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .maybeSingle();
 
       if (maxErr && maxErr.code !== "PGRST116") {
-        throw maxErr
+        throw maxErr;
       }
 
       if (maxRow?.sort_order !== undefined && maxRow.sort_order !== null) {
-        sortOrder = maxRow.sort_order + 10
+        sortOrder = maxRow.sort_order + 10;
       }
 
       const { error: insertErr } = await db.from("doc_pages").insert({
@@ -94,22 +100,22 @@ export default function NewDocPage() {
         status: payload.status,
         content_json: payload.content_json,
         sort_order: sortOrder,
-      })
+      });
 
       if (insertErr) {
-        throw insertErr
+        throw insertErr;
       }
 
-      toast.success("Docs page created")
-      router.push("/admin/docs")
+      toast.success("Docs page created");
+      router.push("/admin/docs");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to create docs page"
-      toast.error(message)
+        err instanceof Error ? err.message : "Failed to create docs page";
+      toast.error(message);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -132,5 +138,5 @@ export default function NewDocPage() {
         onSubmit={handleCreate}
       />
     </div>
-  )
+  );
 }

@@ -8,14 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  FileText,
-  FolderGit2,
-  Award,
-  DatabaseZap,
-  ArrowRight,
-  Circle,
-} from "lucide-react";
+import { FileText, FolderGit2, Award, ArrowRight, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived" | string;
@@ -228,9 +221,9 @@ export default function DashboardPage() {
           .slice(0, 12);
 
         setActivities(merged);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message ?? "Failed to load dashboard.");
+        setError((err as Error).message ?? "Failed to load dashboard.");
       } finally {
         setLoading(false);
       }

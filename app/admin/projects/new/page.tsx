@@ -27,7 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived";
 
@@ -38,20 +37,6 @@ function slugify(value: string) {
     .replace(/[\s_]+/g, "-")
     .replace(/[^a-z0-9-]/g, "");
 }
-
-const statusLabel: Record<ProjectStatus, string> = {
-  draft: "Draft",
-  in_progress: "In progress",
-  done: "Completed",
-  archived: "Archived",
-};
-
-const statusColor: Record<ProjectStatus, string> = {
-  draft: "bg-zinc-700/60 text-zinc-200 border-zinc-500/60",
-  in_progress: "bg-sky-500/15 text-sky-300 border-sky-500/40",
-  done: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
-  archived: "bg-zinc-800 text-zinc-300 border-zinc-600/60",
-};
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -131,6 +116,7 @@ export default function NewProjectPage() {
         finalCoverUrl = publicUrl;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: any = {
         title,
         slug: slug || slugify(title),
@@ -156,8 +142,8 @@ export default function NewProjectPage() {
       }
 
       router.push("/admin/projects");
-    } catch (err: any) {
-      setError(err.message ?? "Unknown error");
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Unknown error");
       setLoading(false);
       return;
     }
@@ -469,7 +455,7 @@ export default function NewProjectPage() {
                     Cover image preview
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-slate-950/40 to-transparent" />
               </div>
             </div>
 

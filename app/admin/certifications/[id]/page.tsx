@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { Database } from "@/lib/database.types";
+import { supabase as supabaseClient } from "@/lib/supabaseClient";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = supabaseClient as any;
+import Image from "next/image";
 
 import {
   Card,
@@ -139,8 +141,9 @@ export default function EditCertificationPage() {
         setHighlight(row.highlight);
         setNotes(row.notes ?? "");
         setCurrentBadgeUrl(row.badge_image_url ?? null);
-      } catch (err: any) {
-        setError(err.message);
+        setCurrentBadgeUrl(row.badge_image_url ?? null);
+      } catch (err: unknown) {
+        setError((err as Error).message);
       } finally {
         setLoading(false);
       }
@@ -205,7 +208,7 @@ export default function EditCertificationPage() {
       }
 
       // 2) payload สำหรับ update
-      const payload: any = {
+      const payload = {
         cert_type: certType,
         name: name.trim(),
         vendor: vendor.trim(),
@@ -224,7 +227,8 @@ export default function EditCertificationPage() {
 
       const { error } = await supabase
         .from("certs")
-        .update(payload)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .update(payload as any)
         .eq("id", certId);
 
       if (error) {
@@ -234,8 +238,8 @@ export default function EditCertificationPage() {
       }
 
       router.push("/admin/certifications");
-    } catch (err: any) {
-      setError(err.message ?? "Unknown error");
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Unknown error");
       setSaving(false);
     }
   };
@@ -486,17 +490,23 @@ export default function EditCertificationPage() {
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-md border border-dashed border-border/60 flex items-center justify-center overflow-hidden bg-muted/30">
                   {badgePreview ? (
-                    <img
-                      src={badgePreview}
-                      alt="Badge preview"
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={badgePreview}
+                        alt="Badge preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   ) : currentBadgeUrl && !clearBadge ? (
-                    <img
-                      src={currentBadgeUrl}
-                      alt="Current badge"
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={currentBadgeUrl}
+                        alt="Current badge"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                   ) : (
                     <span className="text-[11px] text-muted-foreground text-center px-1">
                       No image

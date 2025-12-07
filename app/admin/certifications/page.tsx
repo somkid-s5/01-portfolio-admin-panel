@@ -131,7 +131,7 @@ function typeLabel(type: CertType) {
 
 export default function CertificationsPage() {
   const router = useRouter();
-  const db = supabase as any;
+  const db = supabase;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,15 +162,16 @@ export default function CertificationsPage() {
           .order("created_at", { ascending: false });
         if (certRes.error) throw new Error(certRes.error.message);
         setCerts(certRes.data as CertRow[]);
+        setCerts(certRes.data as CertRow[]);
         setCategories([]); // No categories table
-      } catch (e: any) {
-        setError(e.message || "Failed to load certifications.");
+      } catch (e: unknown) {
+        setError((e as Error).message || "Failed to load certifications.");
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, []);
+  }, [db]);
 
   const vendors = useMemo(() => {
     const set = new Set<string>();
@@ -257,7 +258,8 @@ export default function CertificationsPage() {
         setCerts((prev) => prev.filter((c) => c.id !== id));
         return "Certification deleted successfully";
       },
-      error: (err: any) => `Failed to delete certification: ${err.message}`,
+      error: (err: unknown) =>
+        `Failed to delete certification: ${(err as Error).message}`,
     });
   };
 
@@ -324,7 +326,7 @@ export default function CertificationsPage() {
               {/* cert type */}
               <Select
                 value={filterType}
-                onValueChange={(val) => setFilterType(val as any)}
+                onValueChange={(val) => setFilterType(val as CertType | "all")}
               >
                 <SelectTrigger className="h-8 w-[130px] text-xs">
                   <SelectValue placeholder="Type" />
@@ -340,7 +342,9 @@ export default function CertificationsPage() {
               {/* status */}
               <Select
                 value={filterStatus}
-                onValueChange={(val) => setFilterStatus(val as any)}
+                onValueChange={(val) =>
+                  setFilterStatus(val as CertStatus | "all")
+                }
               >
                 <SelectTrigger className="h-8 w-[140px] text-xs">
                   <SelectValue placeholder="Status" />

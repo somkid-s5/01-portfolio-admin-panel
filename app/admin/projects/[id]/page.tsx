@@ -31,13 +31,6 @@ import {
 
 type ProjectStatus = "draft" | "in_progress" | "done" | "archived";
 
-const statusLabel: Record<ProjectStatus, string> = {
-  draft: "Draft",
-  in_progress: "In progress",
-  done: "Completed",
-  archived: "Archived",
-};
-
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -48,7 +41,8 @@ function slugify(value: string) {
 
 export default function EditProjectPage() {
   const router = useRouter();
-  const { id } = useParams();
+  const { id } = useParams() as { id: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
 
   // form fields
@@ -125,7 +119,7 @@ export default function EditProjectPage() {
     };
 
     loadProject();
-  }, [id]);
+  }, [id, db]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,16 +162,13 @@ export default function EditProjectPage() {
         cover_image_url: finalCoverUrl,
       };
 
-      const { error } = await db
-        .from("projects")
-        .update(payload)
-        .eq("id", id);
+      const { error } = await db.from("projects").update(payload).eq("id", id);
 
       if (error) throw error;
 
       router.push("/admin/projects");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError((err as Error).message);
       setSaving(false);
       return;
     }

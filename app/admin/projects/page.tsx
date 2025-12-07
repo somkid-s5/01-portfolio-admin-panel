@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -16,7 +15,6 @@ import {
   PlusCircle,
   LayoutGrid,
   List,
-  Filter,
   Search,
   SquarePen,
   Trash2,
@@ -69,7 +67,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
-  const db = supabase as any;
+  const db = supabase;
 
   // --- LOGIC ---
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,7 +102,7 @@ export default function ProjectsPage() {
       if (data) {
         // 1. ดึง Category ทั้งหมด: ["react", "devops", "react", null, "nextjs"]
         const allCategories = data
-          .map((project: any) => project.category)
+          .map((project: { category: string | null }) => project.category)
           .filter(Boolean) as string[]; // filter(Boolean) = กรอง null, undefined ออก
 
         // 2. "สรุป" (De-duplicate) ให้เหลือตัวเดียว: ["react", "devops", "nextjs"]
@@ -121,7 +119,7 @@ export default function ProjectsPage() {
     };
 
     fetchCategories();
-  }, []); // 👈 วงเล็บว่าง = ทำงานแค่ครั้งเดียวตอนโหลด
+  }, [db]); // 👈 วงเล็บว่าง = ทำงานแค่ครั้งเดียวตอนโหลด
 
   // --- Effect สำหรับ Fetch ข้อมูล Projects (กรองข้อมูล) ---
   useEffect(() => {
@@ -156,22 +154,34 @@ export default function ProjectsPage() {
       }
 
       setProjects(
-        (data || []).map((row: any) => ({
-          id: row.id,
-          title: row.title,
-          description: row.description,
-          status: row.status as ProjectStatus,
-          tech_stack: row.tech_stack as string[] | null,
-          updated_at: row.updated_at,
-          cover_image_url: row.cover_image_url,
-          category: row.category,
-        }))
+        (data || []).map((row: unknown) => {
+          const r = row as {
+            id: string;
+            title: string;
+            description: string | null;
+            status: ProjectStatus;
+            tech_stack: string[] | null;
+            updated_at: string;
+            cover_image_url: string | null;
+            category: string | null;
+          };
+          return {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            status: r.status,
+            tech_stack: r.tech_stack,
+            updated_at: r.updated_at,
+            cover_image_url: r.cover_image_url,
+            category: r.category,
+          };
+        })
       );
       setLoading(false);
     };
 
     fetchProjects();
-  }, [debouncedSearchTerm, sortBy, category]);
+  }, [debouncedSearchTerm, sortBy, category, db]);
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -238,8 +248,8 @@ export default function ProjectsPage() {
         setProjects((prev) => prev.filter((p) => p.id !== id));
         return "Project deleted successfully";
       },
-      error: (err: any) => {
-        return `Failed to delete project: ${err.message}`;
+      error: (err: unknown) => {
+        return `Failed to delete project: ${(err as Error).message}`;
       },
     });
   };

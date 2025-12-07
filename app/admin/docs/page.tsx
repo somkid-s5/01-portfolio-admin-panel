@@ -47,10 +47,11 @@ import {
 
 import { Plus, Pencil, Trash2, FileText, Folder } from "lucide-react";
 import { slugify } from "@/lib/utils";
-import { DocPage, DocSection } from "./types";
+import { DocPage, DocSection, DocStatus } from "./types";
 
 export default function DocsAdminPage() {
   const router = useRouter();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
 
   const [loading, setLoading] = useState(true);
@@ -101,30 +102,50 @@ export default function DocsAdminPage() {
       }
 
       setSections(
-        (secData ?? []).map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          slug: row.slug,
-          description: "description" in row ? row.description : null,
-          sort_order: "sort_order" in row ? row.sort_order : null,
-        }))
+        (secData ?? []).map((row: unknown) => {
+          const r = row as {
+            id: string;
+            name: string;
+            slug: string;
+            description?: string;
+            sort_order?: number;
+          };
+          return {
+            id: r.id,
+            name: r.name,
+            slug: r.slug,
+            description: r.description ?? null,
+            sort_order: r.sort_order ?? null,
+          };
+        })
       );
       setPages(
-        (pageData ?? []).map((row: any) => ({
-          id: row.id,
-          section_id: row.section_id,
-          title: row.title,
-          slug: row.slug,
-          excerpt: row.excerpt,
-          status: row.status,
-          sort_order: row.sort_order,
-        }))
+        (pageData ?? []).map((row: unknown) => {
+          const r = row as {
+            id: string;
+            section_id: string;
+            title: string;
+            slug: string;
+            excerpt?: string;
+            status: DocStatus;
+            sort_order?: number;
+          };
+          return {
+            id: r.id,
+            section_id: r.section_id,
+            title: r.title,
+            slug: r.slug,
+            excerpt: r.excerpt ?? null,
+            status: r.status,
+            sort_order: r.sort_order ?? null,
+          };
+        })
       );
       setLoading(false);
     };
 
     load();
-  }, []);
+  }, [db]);
 
   const refresh = async () => {
     // Silent refresh mostly, or minimal loading state if needed
@@ -149,24 +170,44 @@ export default function DocsAdminPage() {
     }
 
     setSections(
-      (secData ?? []).map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        description: "description" in row ? row.description : null,
-        sort_order: "sort_order" in row ? row.sort_order : null,
-      }))
+      (secData ?? []).map((row: unknown) => {
+        const r = row as {
+          id: string;
+          name: string;
+          slug: string;
+          description?: string;
+          sort_order?: number;
+        };
+        return {
+          id: r.id,
+          name: r.name,
+          slug: r.slug,
+          description: r.description ?? null,
+          sort_order: r.sort_order ?? null,
+        };
+      })
     );
     setPages(
-      (pageData ?? []).map((row: any) => ({
-        id: row.id,
-        section_id: row.section_id,
-        title: row.title,
-        slug: row.slug,
-        excerpt: row.excerpt,
-        status: row.status,
-        sort_order: row.sort_order,
-      }))
+      (pageData ?? []).map((row: unknown) => {
+        const r = row as {
+          id: string;
+          section_id: string;
+          title: string;
+          slug: string;
+          excerpt?: string;
+          status: DocStatus;
+          sort_order?: number;
+        };
+        return {
+          id: r.id,
+          section_id: r.section_id,
+          title: r.title,
+          slug: r.slug,
+          excerpt: r.excerpt ?? null,
+          status: r.status,
+          sort_order: r.sort_order ?? null,
+        };
+      })
     );
   };
 
@@ -264,7 +305,7 @@ export default function DocsAdminPage() {
           type === "section" ? "Section" : "Page"
         } deleted successfully`;
       },
-      error: (err: any) => `Failed to delete: ${err.message}`,
+      error: (err: unknown) => `Failed to delete: ${(err as Error).message}`,
     });
   };
 
