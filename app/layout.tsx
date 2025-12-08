@@ -15,16 +15,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Portfolio Admin Panel",
+    default: "Smart Admin Panel",
     template: "%s | Admin Panel",
   },
   description:
     "A modern content management system for managing your portfolio projects, certifications, and documentation.",
   keywords: ["portfolio", "admin", "cms", "projects", "certifications"],
-  authors: [{ name: "Batcat" }],
+  authors: [{ name: "Smart" }],
   robots: {
     index: false,
     follow: false,
+  },
+  icons: {
+    icon: "/Slogo.png",
   },
 };
 
